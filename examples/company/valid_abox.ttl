@@ -1,0 +1,11 @@
+@prefix ex: <http://example.org/company/> .
+
+<http://example.org/company/employee/E-001> a ex:Employee ;
+    ex:empId "E-001" ;
+    ex:hasAccessLevel 3 .
+
+<http://example.org/company/asset/VPN> a ex:SecureAsset ;
+    ex:assetId "VPN" ;
+    ex:requiredClearance 2 .
+
+<http://example.org/company/employee/E-001> ex:operates <http://example.org/company/asset/VPN> .

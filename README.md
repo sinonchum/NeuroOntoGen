@@ -53,6 +53,7 @@ This is intentionally small. It gives the project a reproducible semantic pipeli
 | Structured SHACL violation parser | Implemented | Validation report graphs are parsed into repair-ready violation objects. |
 | Bounded self-repair controller | Implemented | Fake repairer tests cover success, already-valid passthrough, hard failure after retry limits, and repairer exceptions. |
 | CLI | Implemented | Typer commands compile schemas and validate Turtle graphs. |
+| Runnable examples | Implemented | `examples/company/` includes conforming and non-conforming Turtle smoke fixtures. |
 | Raw extraction normalization | Implemented | JSON-like provider output can be parsed into a validated `ABoxPayload`. |
 | Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections. |
 | Provider-backed extraction boundary | Implemented | A protocol-based adapter builds prompts, calls a provider client, and validates provider output. |
@@ -182,10 +183,10 @@ neuro-onto-gen compile-schema schemas/company_schema.yaml build/schema
 Validate a Turtle data graph against generated SHACL shapes:
 
 ```bash
-neuro-onto-gen validate-turtle path/to/data.ttl build/schema/company_schema.shacl.ttl
+neuro-onto-gen validate-turtle examples/company/valid_abox.ttl build/schema/company_schema.shacl.ttl
 ```
 
-The validation command prints `conforms: true` and exits `0` for conforming graphs. For non-conforming graphs, it prints structured violation details and exits `1`.
+The validation command prints `conforms: true` and exits `0` for conforming graphs. For non-conforming graphs, such as `examples/company/invalid_abox.ttl`, it prints structured violation details and exits `1`.
 
 ## Development
 
@@ -204,7 +205,7 @@ Run linting:
 Current local verification target:
 
 ```text
-28 passed
+31 passed
 All checks passed
 ```
 
@@ -212,6 +213,11 @@ All checks passed
 
 ```text
 NeuroOntoGen/
+|-- examples/
+|   `-- company/
+|       |-- README.md
+|       |-- invalid_abox.ttl
+|       `-- valid_abox.ttl
 |-- docs/
 |   |-- DEVELOPMENT_ROADMAP.md
 |   |-- PRD.md
@@ -235,6 +241,7 @@ NeuroOntoGen/
 |   |-- test_cli.py
 |   |-- test_core_models.py
 |   |-- test_core_serializer.py
+|   |-- test_examples.py
 |   |-- test_package_import.py
 |   |-- test_schema_compiler.py
 |   `-- test_shacl_validation.py
@@ -306,12 +313,12 @@ Planned:
 Partially implemented:
 
 - CLI smoke commands for schema compilation and Turtle validation;
+- runnable company example fixtures for conforming and non-conforming Turtle graphs;
 
 Planned:
 
 - reproducible notebook;
 - GitHub Actions CI;
-- examples directory.
 
 ## Documentation
 

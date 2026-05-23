@@ -610,8 +610,9 @@ Expected: 语义等价 prompt 的输出可计算一致性分数。
 ```text
 src/neuro_onto_gen/cli.py
 notebooks/end_to_end_demo.ipynb
-examples/company/input.txt
-examples/company/company_schema.yaml
+examples/company/README.md
+examples/company/valid_abox.ttl
+examples/company/invalid_abox.ttl
 .github/workflows/ci.yml
 README.md
 ```
@@ -629,7 +630,8 @@ README.md
 
 ```bash
 neuro-onto-gen compile-schema schemas/company_schema.yaml build/schema
-neuro-onto-gen validate-turtle examples/company/abox.ttl build/schema/company_schema.shacl.ttl
+neuro-onto-gen validate-turtle examples/company/valid_abox.ttl build/schema/company_schema.shacl.ttl
+neuro-onto-gen validate-turtle examples/company/invalid_abox.ttl build/schema/company_schema.shacl.ttl
 ```
 
 **Verification:**
@@ -638,7 +640,26 @@ neuro-onto-gen validate-turtle examples/company/abox.ttl build/schema/company_sc
 pytest tests/test_cli.py -v
 ```
 
-Expected: CLI help、schema compilation 和 Turtle validation smoke commands 可运行；non-conforming graph 返回非零退出码并打印 structured violations。
+Expected: CLI help、schema compilation、valid example validation 和 invalid example validation smoke commands 可运行；non-conforming graph 返回非零退出码并打印 structured violations。
+
+### Task 5.1a：Runnable company examples
+
+**Objective:** 让用户 clone 后无需自己编写 Turtle 文件即可跑通 CLI smoke test。
+
+**Files:**
+
+- Create: `examples/company/README.md`
+- Create: `examples/company/valid_abox.ttl`
+- Create: `examples/company/invalid_abox.ttl`
+- Test: `tests/test_examples.py`
+
+**Verification:**
+
+```bash
+pytest tests/test_examples.py -v
+```
+
+Expected: valid example exits `0` with `conforms: true`；invalid example exits `1` and reports missing `requiredClearance`。
 
 ### Task 5.2：End-to-end Notebook
 

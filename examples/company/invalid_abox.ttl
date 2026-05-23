@@ -1,0 +1,4 @@
+@prefix ex: <http://example.org/company/> .
+
+<http://example.org/company/asset/VPN> a ex:SecureAsset ;
+    ex:assetId "VPN" .
