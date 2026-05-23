@@ -4,7 +4,7 @@ NeuroOntoGen is an SDK-first research project for building ontology-generation p
 
 The project combines flexible extraction with symbolic validation. LLMs can propose ABox facts, but LinkML, Pydantic, RDF, and SHACL define the contract that decides whether those facts are usable.
 
-> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, provider-neutral extraction adapter boundaries, RDF/Turtle serialization, and SHACL validation. Production LLM SDK integrations, repair controllers, OWL reasoning, clustering discovery, and MCP adapters are planned but not yet production features.
+> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, provider-neutral extraction adapter boundaries, RDF/Turtle serialization, SHACL validation, and structured SHACL violation parsing. Production LLM SDK integrations, repair controllers, OWL reasoning, clustering discovery, and MCP adapters are planned but not yet production features.
 
 ## Why this exists
 
@@ -50,6 +50,7 @@ This is intentionally small. It gives the project a reproducible semantic pipeli
 | Pydantic ABox models | Implemented | Validates employees, secure assets, and `operates` relations. |
 | RDF/Turtle serializer | Implemented | Converts typed ABox payloads into parseable Turtle. |
 | SHACL validation loop | Implemented | Valid and invalid graphs are tested against generated SHACL. |
+| Structured SHACL violation parser | Implemented | Validation report graphs are parsed into repair-ready violation objects. |
 | CLI | Placeholder | Typer app exists, commands are not yet implemented. |
 | Raw extraction normalization | Implemented | JSON-like provider output can be parsed into a validated `ABoxPayload`. |
 | Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections. |
@@ -77,6 +78,7 @@ graph TB
     RDF --> V[pySHACL Validator]
     SH --> V
     V --> R[Conformance Report]
+    R --> VR[Structured Violations]
 
     R -->|pass| OUT[Validated Graph]
     R -. fail, planned .-> REP[Bounded Repair Loop]
@@ -185,7 +187,7 @@ Run linting:
 Current local verification target:
 
 ```text
-19 passed
+21 passed
 All checks passed
 ```
 
@@ -261,11 +263,11 @@ Next:
 Partially implemented:
 
 - pySHACL validation helper;
+- structured violation parser;
 - valid and invalid graph tests.
 
 Next:
 
-- structured violation parser;
 - bounded self-repair controller with a fake repairer;
 - repair history and hard failure semantics.
 
