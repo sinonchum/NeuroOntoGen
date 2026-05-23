@@ -20,6 +20,9 @@ classes:
       hasAccessLevel:
         range: integer
         required: true
+      operates:
+        range: SecureAsset
+        multivalued: true
   SecureAsset:
     description: "A digital or physical asset requiring clearance"
     attributes:

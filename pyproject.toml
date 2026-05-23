@@ -45,6 +45,10 @@ packages = ["src/neuro_onto_gen"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+  "ignore:Dataset\\.default_context is deprecated:DeprecationWarning",
+  "ignore:Dataset\\.identifier is deprecated:DeprecationWarning",
+]
 
 [tool.ruff]
 line-length = 100
