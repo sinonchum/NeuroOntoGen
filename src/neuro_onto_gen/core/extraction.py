@@ -9,6 +9,7 @@ from typing import Any, Protocol, TypeVar, runtime_checkable
 from pydantic import BaseModel
 
 from neuro_onto_gen.core.models import ABoxPayload
+from neuro_onto_gen.core.prompting import build_company_access_prompt
 
 T = TypeVar("T", bound=BaseModel)
 RawExtraction = str | bytes | bytearray | Mapping[str, Any]
@@ -20,6 +21,15 @@ class ExtractorProtocol(Protocol):
 
     def extract(self, raw_text: str) -> ABoxPayload:
         """Extract a typed ABox payload from raw text."""
+        ...
+
+
+@runtime_checkable
+class CompletionProviderProtocol(Protocol):
+    """Protocol for provider clients that complete a rendered extraction prompt."""
+
+    def complete(self, prompt: str) -> RawExtraction:
+        """Return raw JSON-like extraction output for a rendered prompt."""
         ...
 
 
@@ -63,3 +73,22 @@ class JsonExtractionAdapter:
         """Return the configured raw output as a validated ABox payload."""
         del raw_text
         return parse_abox_payload(self.raw_output)
+
+
+@dataclass(frozen=True)
+class PromptedExtractionAdapter:
+    """Provider-backed extraction boundary using a deterministic prompt builder.
+
+    This adapter owns the SDK-level provider contract but does not depend on a
+    concrete LLM SDK. Production integrations can implement
+    ``CompletionProviderProtocol`` with OpenAI, Anthropic, local models, or test
+    doubles; all outputs still pass through ``parse_abox_payload``.
+    """
+
+    provider: CompletionProviderProtocol
+
+    def extract(self, raw_text: str) -> ABoxPayload:
+        """Build a CompanyAccess prompt, call the provider, and validate output."""
+        prompt = build_company_access_prompt(raw_text)
+        raw_output = self.provider.complete(prompt.render())
+        return parse_abox_payload(raw_output)

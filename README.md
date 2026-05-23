@@ -4,7 +4,7 @@ NeuroOntoGen is an SDK-first research project for building ontology-generation p
 
 The project combines flexible extraction with symbolic validation. LLMs can propose ABox facts, but LinkML, Pydantic, RDF, and SHACL define the contract that decides whether those facts are usable.
 
-> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, RDF/Turtle serialization, and SHACL validation. Provider-backed LLM extraction, repair controllers, OWL reasoning, clustering discovery, and MCP adapters are planned but not yet production features.
+> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, provider-neutral extraction adapter boundaries, RDF/Turtle serialization, and SHACL validation. Production LLM SDK integrations, repair controllers, OWL reasoning, clustering discovery, and MCP adapters are planned but not yet production features.
 
 ## Why this exists
 
@@ -53,7 +53,8 @@ This is intentionally small. It gives the project a reproducible semantic pipeli
 | CLI | Placeholder | Typer app exists, commands are not yet implemented. |
 | Raw extraction normalization | Implemented | JSON-like provider output can be parsed into a validated `ABoxPayload`. |
 | Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections. |
-| LLM provider adapter | Planned | Provider-specific adapters will sit behind the extraction boundary. |
+| Provider-backed extraction boundary | Implemented | A protocol-based adapter builds prompts, calls a provider client, and validates provider output. |
+| Production LLM SDK integration | Planned | Concrete OpenAI, Anthropic, or local-model adapters are intentionally deferred. |
 | Self-repair controller | Planned | Will be tested first with a fake repairer. |
 | OWL reasoning | Planned | Deferred to avoid blocking the MVP on Java / reasoner integration. |
 | Clustering discovery | Planned | Intended for schema discovery, not direct production schema writes. |
@@ -68,8 +69,8 @@ graph TB
     C --> OWL[OWL-compatible Turtle]
 
     TXT[Source Text] --> PR[Prompt Builder]
-    PR -. provider planned .-> EX[Extraction Adapter]
-    EX -. planned .-> JSON[ABox JSON]
+    PR --> EX[Extraction Adapter]
+    EX --> JSON[ABox JSON]
     JSON --> P[Pydantic ABoxPayload]
 
     P --> RDF[RDF/Turtle Serializer]
@@ -184,7 +185,7 @@ Run linting:
 Current local verification target:
 
 ```text
-8 passed
+19 passed
 All checks passed
 ```
 
@@ -245,13 +246,15 @@ Partially implemented:
 - typed ABox models;
 - raw extraction JSON normalization;
 - schema-constrained extraction prompt builder;
+- provider-backed extraction adapter boundary;
 - relation endpoint validation;
 - deterministic Turtle serialization;
 - RDF graph assertions in tests.
 
 Next:
 
-- provider-backed extraction adapter.
+- concrete production LLM SDK integration;
+- provider error taxonomy and retry semantics.
 
 ### Phase 3: Validation and repair
 
@@ -296,7 +299,7 @@ Some of these documents are still design drafts and may describe planned feature
 
 ## Current limitations
 
-- No production LLM provider adapter yet.
+- No production LLM SDK adapter yet.
 - No self-repair controller yet.
 - No OWL reasoner integration yet.
 - No graph database connector yet.
