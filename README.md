@@ -4,7 +4,7 @@ NeuroOntoGen is an SDK-first research project for building ontology-generation p
 
 The project combines flexible extraction with symbolic validation. LLMs can propose ABox facts, but LinkML, Pydantic, RDF, and SHACL define the contract that decides whether those facts are usable.
 
-> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, RDF/Turtle serialization, and SHACL validation. Provider-backed LLM extraction, repair controllers, OWL reasoning, clustering discovery, and MCP adapters are planned but not yet production features.
+> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, RDF/Turtle serialization, and SHACL validation. Provider-backed LLM extraction, repair controllers, OWL reasoning, clustering discovery, and MCP adapters are planned but not yet production features.
 
 ## Why this exists
 
@@ -52,6 +52,7 @@ This is intentionally small. It gives the project a reproducible semantic pipeli
 | SHACL validation loop | Implemented | Valid and invalid graphs are tested against generated SHACL. |
 | CLI | Placeholder | Typer app exists, commands are not yet implemented. |
 | Raw extraction normalization | Implemented | JSON-like provider output can be parsed into a validated `ABoxPayload`. |
+| Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections. |
 | LLM provider adapter | Planned | Provider-specific adapters will sit behind the extraction boundary. |
 | Self-repair controller | Planned | Will be tested first with a fake repairer. |
 | OWL reasoning | Planned | Deferred to avoid blocking the MVP on Java / reasoner integration. |
@@ -66,7 +67,8 @@ graph TB
     C --> SH[SHACL Shapes]
     C --> OWL[OWL-compatible Turtle]
 
-    TXT[Source Text] -. planned .-> EX[Extraction Adapter]
+    TXT[Source Text] --> PR[Prompt Builder]
+    PR -. provider planned .-> EX[Extraction Adapter]
     EX -. planned .-> JSON[ABox JSON]
     JSON --> P[Pydantic ABoxPayload]
 
@@ -201,6 +203,7 @@ NeuroOntoGen/
 |       |-- cli.py
 |       |-- core/
 |       |   |-- models.py
+|       |   |-- prompting.py
 |       |   |-- serializer.py
 |       |   `-- validation.py
 |       `-- schema/
@@ -241,14 +244,14 @@ Partially implemented:
 
 - typed ABox models;
 - raw extraction JSON normalization;
+- schema-constrained extraction prompt builder;
 - relation endpoint validation;
 - deterministic Turtle serialization;
 - RDF graph assertions in tests.
 
 Next:
 
-- provider-backed extraction adapter;
-- prompt builder for schema-constrained extraction.
+- provider-backed extraction adapter.
 
 ### Phase 3: Validation and repair
 
