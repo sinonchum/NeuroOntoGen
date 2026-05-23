@@ -30,3 +30,9 @@ pnpm-debug.log*
 # IDE
 .vscode/
 .idea/
+
+# Local-only planning notes and source guidance docs (do not push)
+local-notes/
+*_本地*.md
+LLM构建本体的挑战与流派.md
+LLM构建本体的挑战与流派.gdoc
