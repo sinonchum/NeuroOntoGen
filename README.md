@@ -4,7 +4,7 @@ NeuroOntoGen is an SDK-first research project for building ontology-generation p
 
 The project combines flexible extraction with symbolic validation. LLMs can propose ABox facts, but LinkML, Pydantic, RDF, and SHACL define the contract that decides whether those facts are usable.
 
-> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, provider-neutral extraction adapter boundaries, RDF/Turtle serialization, SHACL validation, and structured SHACL violation parsing. Production LLM SDK integrations, repair controllers, OWL reasoning, clustering discovery, and MCP adapters are planned but not yet production features.
+> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, provider-neutral extraction adapter boundaries, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, and bounded repair orchestration. Production LLM SDK integrations, production repairers, OWL reasoning, clustering discovery, and MCP adapters are planned but not yet production features.
 
 ## Why this exists
 
@@ -51,6 +51,7 @@ This is intentionally small. It gives the project a reproducible semantic pipeli
 | RDF/Turtle serializer | Implemented | Converts typed ABox payloads into parseable Turtle. |
 | SHACL validation loop | Implemented | Valid and invalid graphs are tested against generated SHACL. |
 | Structured SHACL violation parser | Implemented | Validation report graphs are parsed into repair-ready violation objects. |
+| Bounded self-repair controller | Implemented | Fake repairer tests cover success, already-valid passthrough, and hard failure after retry limits. |
 | CLI | Placeholder | Typer app exists, commands are not yet implemented. |
 | Raw extraction normalization | Implemented | JSON-like provider output can be parsed into a validated `ABoxPayload`. |
 | Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections. |
@@ -81,8 +82,8 @@ graph TB
     R --> VR[Structured Violations]
 
     R -->|pass| OUT[Validated Graph]
-    R -. fail, planned .-> REP[Bounded Repair Loop]
-    REP -. retry .-> P
+    R -->|fail| REP[Bounded Repair Loop]
+    REP --> RDF
 ```
 
 The current code implements the solid arrows. Dotted arrows are planned MVP extensions.
@@ -187,7 +188,7 @@ Run linting:
 Current local verification target:
 
 ```text
-21 passed
+24 passed
 All checks passed
 ```
 
@@ -207,6 +208,7 @@ NeuroOntoGen/
 |       |-- core/
 |       |   |-- models.py
 |       |   |-- prompting.py
+|       |   |-- repair.py
 |       |   |-- serializer.py
 |       |   `-- validation.py
 |       `-- schema/
@@ -264,12 +266,13 @@ Partially implemented:
 
 - pySHACL validation helper;
 - structured violation parser;
+- bounded self-repair controller with fake repairer tests;
 - valid and invalid graph tests.
 
 Next:
 
-- bounded self-repair controller with a fake repairer;
-- repair history and hard failure semantics.
+- production repairer integration;
+- richer repair policy and failure taxonomy.
 
 ### Phase 4: Reasoning and evaluation
 
@@ -302,7 +305,7 @@ Some of these documents are still design drafts and may describe planned feature
 ## Current limitations
 
 - No production LLM SDK adapter yet.
-- No self-repair controller yet.
+- No production repairer implementation yet.
 - No OWL reasoner integration yet.
 - No graph database connector yet.
 - No CLI commands beyond the Typer placeholder.
