@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "neuro-onto-gen"
+version = "0.1.0"
+description = "SDK-first neuro-symbolic ontology generation engine."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "Feiyue Simon QIN" }
+]
+dependencies = [
+  "pydantic>=2",
+  "rdflib>=7",
+  "pyshacl>=0.25",
+  "linkml>=1.7",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "ruff>=0.6",
+]
+llm = [
+  "openai>=1.0",
+]
+clustering = [
+  "scikit-learn>=1.4",
+  "sentence-transformers>=3",
+  "spacy>=3.7",
+]
+owl = [
+  "owlready2>=0.45",
+  "jpype1>=1.5",
+]
+
+[project.scripts]
+neuro-onto-gen = "neuro_onto_gen.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/neuro_onto_gen"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

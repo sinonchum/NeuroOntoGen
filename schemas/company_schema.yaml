@@ -1,0 +1,37 @@
+id: http://example.org/neuro-onto-gen/company
+name: CompanyOntology
+prefixes:
+  ex: http://example.org/company/
+  linkml: https://w3id.org/linkml/
+
+default_prefix: ex
+default_range: string
+
+imports:
+  - linkml:types
+
+classes:
+  Employee:
+    description: "An active staff member of the corporation"
+    attributes:
+      empId:
+        range: string
+        required: true
+      hasAccessLevel:
+        range: integer
+        required: true
+  SecureAsset:
+    description: "A digital or physical asset requiring clearance"
+    attributes:
+      assetId:
+        range: string
+        required: true
+      requiredClearance:
+        range: integer
+        required: true
+
+slots:
+  operates:
+    domain: Employee
+    range: SecureAsset
+    multivalued: true
