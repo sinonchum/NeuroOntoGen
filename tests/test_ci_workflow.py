@@ -25,3 +25,9 @@ def test_ci_workflow_runs_cli_smoke_commands() -> None:
     assert "examples/company/valid_abox.ttl" in workflow
     assert "examples/company/invalid_abox.ttl" in workflow
     assert "requiredClearance" in workflow
+
+
+def test_ci_workflow_runs_benchmark_smoke_command() -> None:
+    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+
+    assert "python benchmarks/run_benchmark.py --dataset examples/company --quick" in workflow

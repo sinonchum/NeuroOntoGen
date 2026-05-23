@@ -44,3 +44,6 @@ jobs:
           test "$invalid_exit" -eq 1
           grep -q "conforms: false" /tmp/neuro-onto-gen-invalid.out
           grep -q "requiredClearance" /tmp/neuro-onto-gen-invalid.out
+
+      - name: Run benchmark smoke check
+        run: python benchmarks/run_benchmark.py --dataset examples/company --quick

@@ -697,6 +697,8 @@ Expected: Notebook 可从头执行到尾。
 - Create: `benchmarks/README.md`
 - Create: `benchmarks/run_benchmark.py`
 - Create: `src/neuro_onto_gen/evaluation/metrics.py`
+- Test: `tests/test_evaluation_metrics.py`
+- Test: `tests/test_benchmark_runner.py`
 
 **Metrics:**
 
@@ -710,9 +712,10 @@ Expected: Notebook 可从头执行到尾。
 
 ```bash
 python benchmarks/run_benchmark.py --dataset examples/company --quick
+python benchmarks/run_benchmark.py --dataset examples/company --quick --output-markdown /tmp/neuro_onto_gen_benchmark.md
 ```
 
-Expected: 输出 JSON / Markdown summary。
+Expected: 输出 JSON summary；可选输出 Markdown summary；CI smoke check 执行 quick benchmark。
 
 ### Task 5.4：GitHub Actions CI
 

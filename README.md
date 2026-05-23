@@ -55,6 +55,7 @@ This is intentionally small. It gives the project a reproducible semantic pipeli
 | CLI | Implemented | Typer commands compile schemas and validate Turtle graphs. |
 | Runnable examples | Implemented | `examples/company/` includes conforming and non-conforming Turtle smoke fixtures. |
 | GitHub Actions CI | Implemented | Runs install, Ruff, pytest, and CLI smoke checks on push and pull request. |
+| Benchmark skeleton | Implemented | Quick benchmark emits JSON and optional Markdown summaries for the company examples. |
 | Raw extraction normalization | Implemented | JSON-like provider output can be parsed into a validated `ABoxPayload`. |
 | Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections. |
 | Provider-backed extraction boundary | Implemented | A protocol-based adapter builds prompts, calls a provider client, and validates provider output. |
@@ -189,6 +190,14 @@ neuro-onto-gen validate-turtle examples/company/valid_abox.ttl build/schema/comp
 
 The validation command prints `conforms: true` and exits `0` for conforming graphs. For non-conforming graphs, such as `examples/company/invalid_abox.ttl`, it prints structured violation details and exits `1`.
 
+### Run the benchmark skeleton
+
+```bash
+python benchmarks/run_benchmark.py --dataset examples/company --quick
+```
+
+The quick benchmark emits a JSON summary with case-level SHACL reports, SHACL conformance rate, and placeholder repair/prompt-stability metrics for future larger datasets.
+
 ## Development
 
 Run the test suite:
@@ -206,7 +215,7 @@ Run linting:
 Current local verification target:
 
 ```text
-34 passed
+42 passed
 All checks passed
 ```
 
@@ -217,6 +226,9 @@ NeuroOntoGen/
 |-- .github/
 |   `-- workflows/
 |       `-- ci.yml
+|-- benchmarks/
+|   |-- README.md
+|   `-- run_benchmark.py
 |-- examples/
 |   `-- company/
 |       |-- README.md
@@ -237,15 +249,19 @@ NeuroOntoGen/
 |       |   |-- repair.py
 |       |   |-- serializer.py
 |       |   `-- validation.py
+|       |-- evaluation/
+|       |   `-- metrics.py
 |       `-- schema/
 |           `-- compiler.py
 |-- tests/
 |   |-- fixtures/
 |   |   `-- company_schema.yaml
-|   |-- test_cli.py
+|   |-- test_benchmark_runner.py
 |   |-- test_ci_workflow.py
+|   |-- test_cli.py
 |   |-- test_core_models.py
 |   |-- test_core_serializer.py
+|   |-- test_evaluation_metrics.py
 |   |-- test_examples.py
 |   |-- test_package_import.py
 |   |-- test_schema_compiler.py
@@ -320,6 +336,7 @@ Partially implemented:
 - CLI smoke commands for schema compilation and Turtle validation;
 - runnable company example fixtures for conforming and non-conforming Turtle graphs;
 - GitHub Actions CI for install, lint, tests, and CLI smoke checks;
+- benchmark skeleton with quick JSON and Markdown summaries;
 
 Planned:
 
