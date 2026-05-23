@@ -525,6 +525,8 @@ tests/test_prompt_stability.py
 
 **Objective:** 用 owlready2 / HermiT / Pellet 检查逻辑不一致。
 
+**Status:** Optional adapter implemented. Base installs expose lazy availability checks and a CLI unavailable-state path; full Pellet/HermiT reasoning requires `pip install -e '.[owl]'` plus Java on PATH.
+
 **Files:**
 
 - Create: `src/neuro_onto_gen/core/owl_reasoner.py`

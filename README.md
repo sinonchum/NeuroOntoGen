@@ -4,7 +4,7 @@ NeuroOntoGen is an SDK-first research project for building ontology-generation p
 
 The project combines flexible extraction with symbolic validation. LLMs can propose ABox facts, but LinkML, Pydantic, RDF, and SHACL define the contract that decides whether those facts are usable.
 
-> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, provider-neutral extraction adapter boundaries, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded repair orchestration, and smoke-testable CLI commands. Production LLM SDK integrations, production repairers, OWL reasoning, clustering discovery, and MCP adapters are planned but not yet production features.
+> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, provider-neutral extraction adapter boundaries, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded repair orchestration, optional OWL reasoner availability/consistency checks, and smoke-testable CLI commands. Production LLM SDK integrations, production repairers, clustering discovery, and MCP adapters are planned but not yet production features.
 
 ## Why this exists
 
@@ -62,7 +62,7 @@ This is intentionally small. It gives the project a reproducible semantic pipeli
 | Provider-backed extraction boundary | Implemented | A protocol-based adapter builds prompts, calls a provider client, and validates provider output. |
 | Production LLM SDK integration | Planned | Concrete OpenAI, Anthropic, or local-model adapters are intentionally deferred. |
 | Repair failure taxonomy | Implemented | Repair failures carry machine-readable reasons and error messages. |
-| OWL reasoning | Planned | Deferred to avoid blocking the MVP on Java / reasoner integration. |
+| OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing. |
 | Clustering discovery | Planned | Intended for schema discovery, not direct production schema writes. |
 
 ## Architecture
@@ -88,6 +88,7 @@ graph TB
     R -->|pass| OUT[Validated Graph]
     R -->|fail| REP[Bounded Repair Loop]
     REP --> RDF
+    OUT --> OR[Optional OWL Reasoner]
 ```
 
 The current code implements the solid arrows. Dotted arrows are planned MVP extensions.
@@ -191,6 +192,19 @@ neuro-onto-gen validate-turtle examples/company/valid_abox.ttl build/schema/comp
 
 The validation command prints `conforms: true` and exits `0` for conforming graphs. For non-conforming graphs, such as `examples/company/invalid_abox.ttl`, it prints structured violation details and exits `1`.
 
+Run an optional OWL consistency check:
+
+```bash
+neuro-onto-gen reason-owl path/to/ontology.ttl
+```
+
+The command exits `2` with a clear install hint when optional OWL dependencies or Java are unavailable. To enable Pellet/HermiT-backed reasoning locally:
+
+```bash
+python -m pip install -e '.[owl]'
+java -version
+```
+
 ### Run the benchmark skeleton
 
 ```bash
@@ -224,7 +238,7 @@ Run linting:
 Current local verification target:
 
 ```text
-45 passed
+49 passed
 All checks passed
 Notebook execution succeeds with nbconvert
 ```
@@ -257,6 +271,7 @@ NeuroOntoGen/
 |       |-- cli.py
 |       |-- core/
 |       |   |-- models.py
+|       |   |-- owl_reasoner.py
 |       |   |-- prompting.py
 |       |   |-- repair.py
 |       |   |-- serializer.py
@@ -276,6 +291,7 @@ NeuroOntoGen/
 |   |-- test_evaluation_metrics.py
 |   |-- test_examples.py
 |   |-- test_notebook_demo.py
+|   |-- test_owl_reasoner.py
 |   |-- test_package_import.py
 |   |-- test_schema_compiler.py
 |   `-- test_shacl_validation.py
@@ -335,9 +351,12 @@ Next:
 
 ### Phase 4: Reasoning and evaluation
 
+Partially implemented:
+
+- optional OWL reasoner adapter with lazy dependency checks and CLI unavailable-state reporting;
+
 Planned:
 
-- optional OWL reasoner integration;
 - prompt-stability evaluation;
 - clustering-based schema discovery;
 - benchmark skeleton.
@@ -370,7 +389,7 @@ Some of these documents are still design drafts and may describe planned feature
 
 - No production LLM SDK adapter yet.
 - No production repairer implementation yet.
-- No OWL reasoner integration yet.
+- OWL reasoning requires optional `.[owl]` dependencies and a Java runtime; the base install only reports availability/unavailability and does not force Java into CI.
 - No graph database connector yet.
 - CLI coverage is limited to schema compilation and Turtle validation smoke commands.
 - The current ontology fixture is a small company-access example, not a general domain model.
