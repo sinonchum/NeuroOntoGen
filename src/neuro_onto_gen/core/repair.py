@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
@@ -33,6 +34,13 @@ class RepairAttempt:
     violations: list[ShaclViolation]
 
 
+class RepairFailureReason(str, Enum):
+    """Machine-readable reasons for bounded repair failure."""
+
+    MAX_ATTEMPTS_EXCEEDED = "max_attempts_exceeded"
+    REPAIRER_RAISED_EXCEPTION = "repairer_raised_exception"
+
+
 @dataclass(frozen=True)
 class RepairResult:
     """Final result of a bounded repair loop."""
@@ -41,6 +49,8 @@ class RepairResult:
     final_turtle: str
     final_report: ShaclValidationReport
     attempts: list[RepairAttempt]
+    failure_reason: RepairFailureReason | None = None
+    error_message: str | None = None
 
 
 class RepairFailure(RuntimeError):
@@ -79,7 +89,18 @@ class RepairController:
 
         for attempt_number in range(1, self.max_attempts + 1):
             violations = parse_shacl_violations(current_report)
-            repaired_turtle = self.repairer.repair(current_turtle, violations, attempt_number)
+            try:
+                repaired_turtle = self.repairer.repair(current_turtle, violations, attempt_number)
+            except Exception as exc:
+                result = RepairResult(
+                    succeeded=False,
+                    final_turtle=current_turtle,
+                    final_report=current_report,
+                    attempts=attempts,
+                    failure_reason=RepairFailureReason.REPAIRER_RAISED_EXCEPTION,
+                    error_message=str(exc),
+                )
+                raise RepairFailure(result) from exc
             attempts.append(
                 RepairAttempt(
                     attempt_number=attempt_number,
@@ -103,5 +124,6 @@ class RepairController:
             final_turtle=current_turtle,
             final_report=current_report,
             attempts=attempts,
+            failure_reason=RepairFailureReason.MAX_ATTEMPTS_EXCEEDED,
         )
         raise RepairFailure(result)

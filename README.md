@@ -51,13 +51,13 @@ This is intentionally small. It gives the project a reproducible semantic pipeli
 | RDF/Turtle serializer | Implemented | Converts typed ABox payloads into parseable Turtle. |
 | SHACL validation loop | Implemented | Valid and invalid graphs are tested against generated SHACL. |
 | Structured SHACL violation parser | Implemented | Validation report graphs are parsed into repair-ready violation objects. |
-| Bounded self-repair controller | Implemented | Fake repairer tests cover success, already-valid passthrough, and hard failure after retry limits. |
+| Bounded self-repair controller | Implemented | Fake repairer tests cover success, already-valid passthrough, hard failure after retry limits, and repairer exceptions. |
 | CLI | Placeholder | Typer app exists, commands are not yet implemented. |
 | Raw extraction normalization | Implemented | JSON-like provider output can be parsed into a validated `ABoxPayload`. |
 | Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections. |
 | Provider-backed extraction boundary | Implemented | A protocol-based adapter builds prompts, calls a provider client, and validates provider output. |
 | Production LLM SDK integration | Planned | Concrete OpenAI, Anthropic, or local-model adapters are intentionally deferred. |
-| Self-repair controller | Planned | Will be tested first with a fake repairer. |
+| Repair failure taxonomy | Implemented | Repair failures carry machine-readable reasons and error messages. |
 | OWL reasoning | Planned | Deferred to avoid blocking the MVP on Java / reasoner integration. |
 | Clustering discovery | Planned | Intended for schema discovery, not direct production schema writes. |
 
@@ -188,7 +188,7 @@ Run linting:
 Current local verification target:
 
 ```text
-24 passed
+25 passed
 All checks passed
 ```
 
@@ -267,12 +267,13 @@ Partially implemented:
 - pySHACL validation helper;
 - structured violation parser;
 - bounded self-repair controller with fake repairer tests;
+- repair failure taxonomy;
 - valid and invalid graph tests.
 
 Next:
 
 - production repairer integration;
-- richer repair policy and failure taxonomy.
+- richer repair policy selection.
 
 ### Phase 4: Reasoning and evaluation
 
