@@ -721,23 +721,27 @@ Expected: 输出 JSON / Markdown summary。
 **Files:**
 
 - Create: `.github/workflows/ci.yml`
+- Test: `tests/test_ci_workflow.py`
 
 **CI jobs:**
 
 - install package；
-- run ruff optional；
+- run Ruff；
 - run pytest；
-- optional notebook smoke test；
+- run CLI schema compilation smoke check；
+- run CLI valid and invalid Turtle validation smoke checks；
 - skip OWL integration unless Java available。
 
 **Verification:**
 
 ```bash
-git add .github/workflows/ci.yml
-git commit -m "ci: add test workflow"
+pytest tests/test_ci_workflow.py -v
+python -m pytest -q
+ruff check .
+gh run list --branch main --limit 1
 ```
 
-Then verify remote CI after push.
+Expected: workflow contract tests pass locally, and the remote GitHub Actions run completes successfully after push.
 
 ---
 

@@ -54,6 +54,7 @@ This is intentionally small. It gives the project a reproducible semantic pipeli
 | Bounded self-repair controller | Implemented | Fake repairer tests cover success, already-valid passthrough, hard failure after retry limits, and repairer exceptions. |
 | CLI | Implemented | Typer commands compile schemas and validate Turtle graphs. |
 | Runnable examples | Implemented | `examples/company/` includes conforming and non-conforming Turtle smoke fixtures. |
+| GitHub Actions CI | Implemented | Runs install, Ruff, pytest, and CLI smoke checks on push and pull request. |
 | Raw extraction normalization | Implemented | JSON-like provider output can be parsed into a validated `ABoxPayload`. |
 | Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections. |
 | Provider-backed extraction boundary | Implemented | A protocol-based adapter builds prompts, calls a provider client, and validates provider output. |
@@ -205,7 +206,7 @@ Run linting:
 Current local verification target:
 
 ```text
-31 passed
+34 passed
 All checks passed
 ```
 
@@ -213,6 +214,9 @@ All checks passed
 
 ```text
 NeuroOntoGen/
+|-- .github/
+|   `-- workflows/
+|       `-- ci.yml
 |-- examples/
 |   `-- company/
 |       |-- README.md
@@ -239,6 +243,7 @@ NeuroOntoGen/
 |   |-- fixtures/
 |   |   `-- company_schema.yaml
 |   |-- test_cli.py
+|   |-- test_ci_workflow.py
 |   |-- test_core_models.py
 |   |-- test_core_serializer.py
 |   |-- test_examples.py
@@ -314,11 +319,11 @@ Partially implemented:
 
 - CLI smoke commands for schema compilation and Turtle validation;
 - runnable company example fixtures for conforming and non-conforming Turtle graphs;
+- GitHub Actions CI for install, lint, tests, and CLI smoke checks;
 
 Planned:
 
 - reproducible notebook;
-- GitHub Actions CI;
 
 ## Documentation
 

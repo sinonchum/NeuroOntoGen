@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test and smoke-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Run CLI smoke checks
+        run: |
+          neuro-onto-gen compile-schema schemas/company_schema.yaml build/schema
+          neuro-onto-gen validate-turtle examples/company/valid_abox.ttl build/schema/company_schema.shacl.ttl
+          set +e
+          neuro-onto-gen validate-turtle examples/company/invalid_abox.ttl build/schema/company_schema.shacl.ttl > /tmp/neuro-onto-gen-invalid.out
+          invalid_exit=$?
+          set -e
+          test "$invalid_exit" -eq 1
+          grep -q "conforms: false" /tmp/neuro-onto-gen-invalid.out
+          grep -q "requiredClearance" /tmp/neuro-onto-gen-invalid.out
