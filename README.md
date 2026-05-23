@@ -4,7 +4,7 @@ NeuroOntoGen is an SDK-first research project for building ontology-generation p
 
 The project combines flexible extraction with symbolic validation. LLMs can propose ABox facts, but LinkML, Pydantic, RDF, and SHACL define the contract that decides whether those facts are usable.
 
-> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, provider-neutral extraction adapter boundaries, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, and bounded repair orchestration. Production LLM SDK integrations, production repairers, OWL reasoning, clustering discovery, and MCP adapters are planned but not yet production features.
+> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, provider-neutral extraction adapter boundaries, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded repair orchestration, and smoke-testable CLI commands. Production LLM SDK integrations, production repairers, OWL reasoning, clustering discovery, and MCP adapters are planned but not yet production features.
 
 ## Why this exists
 
@@ -52,7 +52,7 @@ This is intentionally small. It gives the project a reproducible semantic pipeli
 | SHACL validation loop | Implemented | Valid and invalid graphs are tested against generated SHACL. |
 | Structured SHACL violation parser | Implemented | Validation report graphs are parsed into repair-ready violation objects. |
 | Bounded self-repair controller | Implemented | Fake repairer tests cover success, already-valid passthrough, hard failure after retry limits, and repairer exceptions. |
-| CLI | Placeholder | Typer app exists, commands are not yet implemented. |
+| CLI | Implemented | Typer commands compile schemas and validate Turtle graphs. |
 | Raw extraction normalization | Implemented | JSON-like provider output can be parsed into a validated `ABoxPayload`. |
 | Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections. |
 | Provider-backed extraction boundary | Implemented | A protocol-based adapter builds prompts, calls a provider client, and validates provider output. |
@@ -171,6 +171,22 @@ print(report.report_text)
 
 A valid payload should return `conforms == True`. A graph missing a required property, such as `requiredClearance` on `SecureAsset`, should return `conforms == False` with a SHACL report.
 
+### Use the CLI smoke commands
+
+Compile a schema from the command line:
+
+```bash
+neuro-onto-gen compile-schema schemas/company_schema.yaml build/schema
+```
+
+Validate a Turtle data graph against generated SHACL shapes:
+
+```bash
+neuro-onto-gen validate-turtle path/to/data.ttl build/schema/company_schema.shacl.ttl
+```
+
+The validation command prints `conforms: true` and exits `0` for conforming graphs. For non-conforming graphs, it prints structured violation details and exits `1`.
+
 ## Development
 
 Run the test suite:
@@ -188,7 +204,7 @@ Run linting:
 Current local verification target:
 
 ```text
-25 passed
+28 passed
 All checks passed
 ```
 
@@ -216,6 +232,7 @@ NeuroOntoGen/
 |-- tests/
 |   |-- fixtures/
 |   |   `-- company_schema.yaml
+|   |-- test_cli.py
 |   |-- test_core_models.py
 |   |-- test_core_serializer.py
 |   |-- test_package_import.py
@@ -286,9 +303,12 @@ Planned:
 
 ### Phase 5: Usability layer
 
+Partially implemented:
+
+- CLI smoke commands for schema compilation and Turtle validation;
+
 Planned:
 
-- CLI commands;
 - reproducible notebook;
 - GitHub Actions CI;
 - examples directory.
@@ -309,7 +329,7 @@ Some of these documents are still design drafts and may describe planned feature
 - No production repairer implementation yet.
 - No OWL reasoner integration yet.
 - No graph database connector yet.
-- No CLI commands beyond the Typer placeholder.
+- CLI coverage is limited to schema compilation and Turtle validation smoke commands.
 - The current ontology fixture is a small company-access example, not a general domain model.
 
 These limits are intentional. The first goal is a reproducible, testable semantic validation core.

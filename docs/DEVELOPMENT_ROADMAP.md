@@ -628,9 +628,8 @@ README.md
 **Commands:**
 
 ```bash
-neuro-onto-gen compile-schema --schema schemas/company_schema.yaml --out build/schema
-neuro-onto-gen validate --abox examples/company/abox.ttl --shacl build/schema/company.shacl.ttl
-neuro-onto-gen run --text examples/company/input.txt --schema schemas/company_schema.yaml
+neuro-onto-gen compile-schema schemas/company_schema.yaml build/schema
+neuro-onto-gen validate-turtle examples/company/abox.ttl build/schema/company_schema.shacl.ttl
 ```
 
 **Verification:**
@@ -639,7 +638,7 @@ neuro-onto-gen run --text examples/company/input.txt --schema schemas/company_sc
 pytest tests/test_cli.py -v
 ```
 
-Expected: CLI help 和最小命令可运行。
+Expected: CLI help、schema compilation 和 Turtle validation smoke commands 可运行；non-conforming graph 返回非零退出码并打印 structured violations。
 
 ### Task 5.2：End-to-end Notebook
 
