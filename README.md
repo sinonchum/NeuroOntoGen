@@ -56,6 +56,7 @@ This is intentionally small. It gives the project a reproducible semantic pipeli
 | Runnable examples | Implemented | `examples/company/` includes conforming and non-conforming Turtle smoke fixtures. |
 | GitHub Actions CI | Implemented | Runs install, Ruff, pytest, and CLI smoke checks on push and pull request. |
 | Benchmark skeleton | Implemented | Quick benchmark emits JSON and optional Markdown summaries for the company examples. |
+| End-to-end notebook | Implemented | Executable reviewer/demo notebook covers schema compilation, ABox serialization, SHACL validation, violation inspection, and bounded mock repair. |
 | Raw extraction normalization | Implemented | JSON-like provider output can be parsed into a validated `ABoxPayload`. |
 | Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections. |
 | Provider-backed extraction boundary | Implemented | A protocol-based adapter builds prompts, calls a provider client, and validates provider output. |
@@ -198,6 +199,14 @@ python benchmarks/run_benchmark.py --dataset examples/company --quick
 
 The quick benchmark emits a JSON summary with case-level SHACL reports, SHACL conformance rate, and placeholder repair/prompt-stability metrics for future larger datasets.
 
+### Execute the end-to-end notebook
+
+```bash
+jupyter nbconvert --to notebook --execute notebooks/end_to_end_demo.ipynb --output /tmp/neuro_onto_gen_demo.ipynb
+```
+
+The notebook is deterministic and uses a mock repairer, so it does not require production LLM credentials.
+
 ## Development
 
 Run the test suite:
@@ -215,8 +224,9 @@ Run linting:
 Current local verification target:
 
 ```text
-42 passed
+45 passed
 All checks passed
+Notebook execution succeeds with nbconvert
 ```
 
 ## Repository layout
@@ -238,6 +248,8 @@ NeuroOntoGen/
 |   |-- DEVELOPMENT_ROADMAP.md
 |   |-- PRD.md
 |   `-- TECHNICAL_ARCHITECTURE.md
+|-- notebooks/
+|   `-- end_to_end_demo.ipynb
 |-- schemas/
 |   `-- company_schema.yaml
 |-- src/
@@ -263,6 +275,7 @@ NeuroOntoGen/
 |   |-- test_core_serializer.py
 |   |-- test_evaluation_metrics.py
 |   |-- test_examples.py
+|   |-- test_notebook_demo.py
 |   |-- test_package_import.py
 |   |-- test_schema_compiler.py
 |   `-- test_shacl_validation.py
@@ -337,10 +350,11 @@ Partially implemented:
 - runnable company example fixtures for conforming and non-conforming Turtle graphs;
 - GitHub Actions CI for install, lint, tests, and CLI smoke checks;
 - benchmark skeleton with quick JSON and Markdown summaries;
+- reproducible end-to-end notebook with deterministic mock repair;
 
 Planned:
 
-- reproducible notebook;
+- production LLM-backed notebook variants after provider adapters exist;
 
 ## Documentation
 

@@ -665,6 +665,8 @@ Expected: valid example exits `0` with `conforms: true`；invalid example exits 
 
 **Objective:** 支撑学术审稿复现和 demo track 展示。
 
+**Status:** Implemented. The notebook uses deterministic SDK calls and a mock repairer, so it can execute without production LLM credentials.
+
 **Files:**
 
 - Create: `notebooks/end_to_end_demo.ipynb`
