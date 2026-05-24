@@ -27,6 +27,11 @@ def test_quick_benchmark_outputs_json_summary() -> None:
     assert summary["prompt_stability_score"] == 1.0
     assert summary["prompt_stability"]["variant_count"] == 2
     assert summary["prompt_stability"]["exact_graph_stability"] == 1.0
+    assert summary["schema_discovery"]["term_count"] > 0
+    assert summary["schema_discovery"]["cluster_count"] > 0
+    assert summary["schema_discovery"]["draft_schema"]["annotations"]["generation_status"] == (
+        "schema_discovery_draft_requires_human_review"
+    )
     assert summary["cases"]["valid_abox.ttl"]["conforms"] is True
     assert summary["cases"]["invalid_abox.ttl"]["conforms"] is False
     assert "requiredClearance" in summary["cases"]["invalid_abox.ttl"]["report_text"]
@@ -56,4 +61,5 @@ def test_quick_benchmark_can_write_markdown_summary(tmp_path: Path) -> None:
     assert "SHACL conformance rate: 0.5" in markdown
     assert "Prompt stability score: 1.0" in markdown
     assert "Prompt variants: 2" in markdown
+    assert "Schema discovery clusters:" in markdown
     assert "invalid_abox.ttl" in markdown

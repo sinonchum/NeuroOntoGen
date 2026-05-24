@@ -4,7 +4,7 @@ NeuroOntoGen is an SDK-first research project for building ontology-generation p
 
 The project combines flexible extraction with symbolic validation. LLMs can propose ABox facts, but LinkML, Pydantic, RDF, and SHACL define the contract that decides whether those facts are usable.
 
-> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, provider-neutral extraction adapter boundaries, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded repair orchestration, optional OWL reasoner availability/consistency checks, cross-prompt RDF graph stability evaluation, and smoke-testable CLI commands. Production LLM SDK integrations, production repairers, clustering discovery, and MCP adapters are planned but not yet production features.
+> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, provider-neutral extraction adapter boundaries, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded repair orchestration, optional OWL reasoner availability/consistency checks, cross-prompt RDF graph stability evaluation, clustering-based schema discovery, and smoke-testable CLI commands. Production LLM SDK integrations, production repairers, heavier clustering integrations, and MCP adapters are planned but not yet production features.
 
 ## Why this exists
 
@@ -353,15 +353,16 @@ Next:
 
 ### Phase 4: Reasoning and evaluation
 
-Partially implemented:
+Implemented:
 
 - optional OWL reasoner adapter with lazy dependency checks and CLI unavailable-state reporting;
+- clustering-based schema discovery with deterministic term extraction/embedding fallback, cluster labeling, human-review flags, and LinkML draft generation;
+- prompt-stability evaluation with RDF graph canonicalization and graph-level diagnostics.
 
 Planned:
 
-- prompt-stability evaluation;
-- clustering-based schema discovery;
-- benchmark skeleton.
+- heavier optional SpaCy / sentence-transformer / scikit-learn integrations for large-domain clustering;
+- production LLM-based cluster naming.
 
 ### Phase 5: Usability layer
 

@@ -549,6 +549,8 @@ Expected:
 
 **Objective:** 为无 TBox 先验的陌生领域提供 schema discovery 草案。
 
+**Status:** Implemented deterministic schema-discovery draft pipeline. The base install exposes lightweight candidate term extraction, injectable embeddings, deterministic similarity clustering, cluster exemplar labeling, explicit human-review flags, JSON diagnostics, and LinkML-compatible draft generation. Heavy SpaCy / sentence-transformers / scikit-learn AP integrations remain optional future upgrades for larger corpora; the current smoke path intentionally avoids mandatory model downloads.
+
 **Files:**
 
 - Create: `src/neuro_onto_gen/clustering/discovery.py`

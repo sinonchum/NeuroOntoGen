@@ -9,6 +9,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from neuro_onto_gen.clustering.discovery import discover_schema_from_terms
 from neuro_onto_gen.core.validation import validate_abox_turtle
 from neuro_onto_gen.evaluation.metrics import shacl_conformance_rate
 from neuro_onto_gen.evaluation.prompt_stability import PromptVariantOutput, evaluate_prompt_stability
@@ -53,6 +54,17 @@ def run_quick_benchmark(dataset: Path) -> dict[str, Any]:
                 ),
             ]
         )
+        schema_discovery = discover_schema_from_terms(
+            [
+                "Employee",
+                "staff member",
+                "access level",
+                "Secure Asset",
+                "digital asset",
+                "physical asset",
+                "required clearance",
+            ]
+        )
 
     return {
         "dataset": str(dataset),
@@ -62,6 +74,10 @@ def run_quick_benchmark(dataset: Path) -> dict[str, Any]:
         "repair_success_rate": 0.0,
         "prompt_stability_score": prompt_stability.exact_graph_stability,
         "prompt_stability": prompt_stability.to_json_dict(),
+        "schema_discovery": {
+            **schema_discovery.to_json_dict(),
+            "draft_schema": schema_discovery.to_linkml_draft("company_discovery"),
+        },
         "cases": cases,
     }
 
@@ -79,6 +95,9 @@ def render_markdown_summary(summary: dict[str, Any]) -> str:
         f"Prompt stability score: {summary['prompt_stability_score']}",
         f"Prompt variants: {summary['prompt_stability']['variant_count']}",
         f"Prompt exact graph stability: {summary['prompt_stability']['exact_graph_stability']}",
+        f"Schema discovery terms: {summary['schema_discovery']['term_count']}",
+        f"Schema discovery clusters: {summary['schema_discovery']['cluster_count']}",
+        "Schema discovery status: draft requires human ontology review",
         "",
         "## Cases",
     ]
