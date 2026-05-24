@@ -90,7 +90,7 @@ def test_validate_turtle_command_exits_nonzero_and_prints_violations(
     assert "requiredClearance" in result.output
 
 
-def test_extract_command_uses_xiaomi_mimo_provider_and_prints_validated_json(
+def test_extract_command_defaults_to_deepseek_provider_and_prints_validated_json(
     monkeypatch,
 ) -> None:
     raw_output = {
@@ -105,10 +105,15 @@ def test_extract_command_uses_xiaomi_mimo_provider_and_prints_validated_json(
         ],
     }
     adapter = JsonExtractionAdapter(raw_output=raw_output)
+    seen_provider_names = []
+
+    def fake_build(provider_name):
+        seen_provider_names.append(provider_name)
+        return adapter
 
     monkeypatch.setattr(
         "neuro_onto_gen.cli.build_extraction_adapter",
-        lambda provider_name: adapter,
+        fake_build,
     )
 
     result = runner.invoke(
@@ -117,6 +122,7 @@ def test_extract_command_uses_xiaomi_mimo_provider_and_prints_validated_json(
     )
 
     assert result.exit_code == 0, result.output
+    assert seen_provider_names == ["deepseek"]
     parsed = json.loads(result.output)
     assert parsed["employees"][0]["emp_id"] == "E-001"
     assert parsed["secure_assets"][0]["asset_id"] == "VPN"
@@ -186,7 +192,7 @@ def test_extract_command_reports_provider_configuration_errors(monkeypatch) -> N
     def raise_configuration_error(_provider_name):
         from neuro_onto_gen.providers import ProviderConfigurationError
 
-        raise ProviderConfigurationError("XIAOMI_API_KEY is required")
+        raise ProviderConfigurationError("DEEPSEEK_API_KEY is required")
 
     monkeypatch.setattr(
         "neuro_onto_gen.cli.build_extraction_adapter",
@@ -197,4 +203,4 @@ def test_extract_command_reports_provider_configuration_errors(monkeypatch) -> N
 
     assert result.exit_code == 2
     assert "provider_config_error" in result.output
-    assert "XIAOMI_API_KEY" in result.output
+    assert "DEEPSEEK_API_KEY" in result.output

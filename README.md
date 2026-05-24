@@ -58,13 +58,13 @@ The typed ABox payload currently covers the extraction MVP subset (`Employee`, `
 | Raw extraction normalization | Implemented | JSON-like provider output can be parsed into a validated `ABoxPayload`. |
 | Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections. |
 | Provider-backed extraction boundary | Implemented | A protocol-based adapter builds prompts, calls a provider client, and validates provider output. |
-| Xiaomi MiMo provider integration | Implemented | OpenAI-compatible `mimo-v2.5-pro` adapter using `XIAOMI_API_KEY`, `XIAOMI_BASE_URL`, and the `extract` / `repair-turtle` provider path. |
-| DeepSeek provider integration | Implemented | OpenAI-compatible `deepseek-v4-pro` adapter using `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, and `DEEPSEEK_MODEL`; usable by extraction and repair. |
-| Production LLM SDK integration | Partially implemented | OpenAI-compatible provider base supports Xiaomi MiMo and DeepSeek; direct OpenAI/Anthropic SDK adapters remain planned. |
+| Xiaomi MiMo provider integration | Parked | Adapter remains in the codebase, but default extraction/repair flows are now DeepSeek-first while Xiaomi credentials are unavailable. |
+| DeepSeek provider integration | Implemented | OpenAI-compatible `deepseek-v4-pro` adapter using `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, and `DEEPSEEK_MODEL`; default for extraction and usable by repair. |
+| Production LLM SDK integration | Partially implemented | OpenAI-compatible provider base supports DeepSeek plus parked Xiaomi MiMo; direct OpenAI/Anthropic SDK adapters remain planned. |
 | Repair failure taxonomy | Implemented | Repair failures carry machine-readable reasons and error messages. |
 | OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing. |
 | Prompt stability evaluation | Implemented | Compares parseable Turtle outputs across prompt variants using canonical RDF triples, consensus graph coverage, and per-variant precision/recall/F1 diagnostics. |
-| Clustering discovery | Implemented | Deterministic term extraction/embedding fallback, clustering, human-review flags, and LinkML draft generation; heavier AP/SpaCy/ST integrations remain planned. |
+| Clustering discovery | Implemented | Deterministic fallback plus optional SpaCy noun-chunk extraction, sentence-transformer embeddings, scikit-learn AffinityPropagation clustering, human-review flags, and LinkML draft generation. |
 
 ## Architecture
 
@@ -194,21 +194,16 @@ neuro-onto-gen validate-turtle examples/company/valid_abox.ttl build/schema/comp
 
 The validation command prints `conforms: true` and exits `0` for conforming graphs. For non-conforming graphs, such as `examples/company/invalid_abox.ttl`, it prints structured violation details and exits `1`.
 
-Extract source text with an OpenAI-compatible provider:
+Extract source text with the default DeepSeek OpenAI-compatible provider:
 
 ```bash
-# Xiaomi MiMo
-export XIAOMI_API_KEY="..."
-export XIAOMI_BASE_URL="https://token-plan-cn.xiaomimimo.com/v1"
-export XIAOMI_MODEL="mimo-v2.5-pro"
-neuro-onto-gen extract "Employee E-001 has access level 3 and operates secure asset VPN requiring clearance 2." --provider xiaomi-mimo
-
-# DeepSeek
 export DEEPSEEK_API_KEY="..."
 export DEEPSEEK_BASE_URL="https://api.deepseek.com/v1"
 export DEEPSEEK_MODEL="deepseek-v4-pro"
-neuro-onto-gen extract "Employee E-001 has access level 3 and operates secure asset VPN requiring clearance 2." --provider deepseek
+neuro-onto-gen extract "Employee E-001 has access level 3 and operates secure asset VPN requiring clearance 2."
 ```
+
+Xiaomi MiMo is temporarily parked because the available credential currently returns `401 invalid_key`; its adapter remains available for explicit experiments with a valid key via `--provider xiaomi-mimo`.
 
 The `extract` command renders the schema-constrained CompanyAccess prompt, calls the selected OpenAI-compatible chat-completions endpoint, and prints only Pydantic-validated ABox JSON. Missing provider configuration exits `2`; provider HTTP/shape errors exit `3`; schema validation failures exit `4`.
 
@@ -226,7 +221,7 @@ Run an optional OWL consistency check:
 neuro-onto-gen reason-owl path/to/ontology.ttl
 ```
 
-The command exits `2` with a clear install hint when optional OWL dependencies or Java are unavailable. To enable Pellet/HermiT-backed reasoning locally:
+The command exits `2` with a clear install hint when optional OWL dependencies or Java are unavailable. In SDK code, inconsistent OWL reports can also be converted into `OwlRepairDiagnostic` objects and passed through the same LLM Turtle repair prompt via `OwlRepairController`, then rechecked by the reasoner. To enable Pellet/HermiT-backed reasoning locally:
 
 ```bash
 python -m pip install -e '.[owl]'
@@ -390,19 +385,19 @@ Implemented:
 Next:
 
 - richer repair policy selection;
-- OWL inconsistency diagnostics converted into repair prompts.
+- production OWL repair CLI wrapping `OwlRepairController`.
 
 ### Phase 4: Reasoning and evaluation
 
 Implemented:
 
 - optional OWL reasoner adapter with lazy dependency checks and CLI unavailable-state reporting;
-- clustering-based schema discovery with deterministic term extraction/embedding fallback, cluster labeling, human-review flags, and LinkML draft generation;
+- OWL inconsistency diagnostics plus bounded `OwlRepairController` revalidation loop;
+- clustering-based schema discovery with deterministic fallback plus optional SpaCy / sentence-transformer / scikit-learn AffinityPropagation adapters;
 - prompt-stability evaluation with RDF graph canonicalization and graph-level diagnostics.
 
 Planned:
 
-- heavier optional SpaCy / sentence-transformer / scikit-learn integrations for large-domain clustering;
 - production LLM-based cluster naming.
 
 ### Phase 5: Usability layer
@@ -431,7 +426,7 @@ Some of these documents are still design drafts and may describe planned feature
 
 ## Current limitations
 
-- Xiaomi MiMo and DeepSeek are OpenAI-compatible provider integrations; real production behavior still depends on valid external API credentials and endpoint availability.
+- Xiaomi MiMo is parked until valid credentials/endpoint access are available; DeepSeek is the default OpenAI-compatible provider for local smoke paths.
 - Provider retry/backoff is not implemented yet.
 - OWL reasoning requires optional `.[owl]` dependencies and a Java runtime; the base install only reports availability/unavailability and does not force Java into CI.
 - No graph database connector yet.

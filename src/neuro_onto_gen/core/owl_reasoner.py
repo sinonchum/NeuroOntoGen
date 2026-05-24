@@ -15,6 +15,18 @@ from pathlib import Path
 from typing import Any
 
 
+@dataclass(frozen=True)
+class OwlRepairDiagnostic:
+    """Structured OWL inconsistency diagnostic that can feed the repair loop."""
+
+    focus_node: str
+    result_path: str
+    source_constraint_component: str
+    severity: str
+    message: str
+    diagnostic_type: str = "owl_inconsistency"
+
+
 class OwlReasonerEngine(str, Enum):
     """Supported optional OWL reasoner engines."""
 
@@ -117,6 +129,28 @@ def reason_owl_turtle(
         consistent=True,
         engine=engine,
         message="Ontology is consistent.",
+    )
+
+
+def build_owl_repair_diagnostic(turtle: str, report: OwlReasoningReport) -> OwlRepairDiagnostic:
+    """Convert an inconsistent OWL reasoning report into a repair diagnostic.
+
+    The diagnostic mirrors the SHACL violation fields consumed by the generic
+    LLM repair prompt while explicitly marking the source as OWL consistency,
+    not SHACL validation.
+    """
+    if report.consistent is not False:
+        raise ValueError("OWL repair diagnostics require an inconsistent reasoning report")
+    compact_turtle = " ".join(line.strip() for line in turtle.splitlines() if line.strip())
+    message = report.message
+    if compact_turtle:
+        message = f"{message} | ontology_excerpt={compact_turtle[:500]}"
+    return OwlRepairDiagnostic(
+        focus_node="<ontology>",
+        result_path="owl:consistency",
+        source_constraint_component="OWLConsistencyConstraintComponent",
+        severity="Violation",
+        message=message,
     )
 
 

@@ -124,9 +124,9 @@ def repair_turtle_command(
 def extract_command(
     text: str = typer.Argument(..., help="Source text to extract into validated ABox JSON."),
     provider: str = typer.Option(
-        "xiaomi-mimo",
+        "deepseek",
         "--provider",
-        help="Extraction provider name. Supported: xiaomi-mimo.",
+        help="Extraction provider name. Supported: deepseek. Xiaomi MiMo remains available only when explicitly requested.",
     ),
 ) -> None:
     """Extract a validated CompanyAccess ABox payload from source text."""

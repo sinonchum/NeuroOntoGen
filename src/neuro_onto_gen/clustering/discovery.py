@@ -11,10 +11,40 @@ import math
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from typing import Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Protocol, Sequence
 
 NumberVector = Sequence[float]
 EmbeddingMap = Mapping[str, NumberVector]
+
+
+class TermExtractorProtocol(Protocol):
+    """Protocol for candidate-term extractors."""
+
+    backend_name: str
+
+    def extract_terms(self, texts: Iterable[str], *, min_frequency: int = 1) -> list[str]:
+        """Return normalized candidate schema terms from source texts."""
+        ...
+
+
+class EmbeddingProviderProtocol(Protocol):
+    """Protocol for term embedding providers."""
+
+    backend_name: str
+
+    def embed_terms(self, terms: Sequence[str]) -> EmbeddingMap:
+        """Return embeddings keyed by term."""
+        ...
+
+
+class ClustererProtocol(Protocol):
+    """Protocol for clustering terms from a precomputed embedding map."""
+
+    backend_name: str
+
+    def cluster(self, terms: Sequence[str], vectors: Mapping[str, tuple[float, ...]]) -> dict[str, int]:
+        """Return cluster labels keyed by term."""
+        ...
 
 
 @dataclass(frozen=True)
@@ -125,10 +155,128 @@ _SIMPLE_STOPWORDS = {
 def extract_terms(texts: Iterable[str], *, min_frequency: int = 1) -> list[str]:
     """Extract lightweight candidate terms without requiring SpaCy.
 
-    The optional production path can later swap in SpaCy noun chunks, but the base
+    The optional production path can swap in ``SpaCyTermExtractor``, but the base
     SDK keeps a deterministic regex fallback so cloning the repository does not
     require heavyweight model downloads.
     """
+    return _extract_terms_with_fallback(texts, min_frequency=min_frequency)
+
+
+@dataclass(frozen=True)
+class SpaCyTermExtractor:
+    """Production noun-chunk candidate extractor with lazy SpaCy loading.
+
+    Tests can inject a tiny ``nlp`` callable to avoid model downloads. Production
+    callers can pass ``model_name`` and install the ``clustering`` extra.
+    """
+
+    model_name: str = "en_core_web_sm"
+    nlp: Any | None = None
+    backend_name: str = "spacy-noun-chunks"
+
+    def extract_terms(self, texts: Iterable[str], *, min_frequency: int = 1) -> list[str]:
+        nlp = self.nlp if self.nlp is not None else self._load_spacy_model()
+        counts: Counter[str] = Counter()
+        display: dict[str, str] = {}
+        for text in texts:
+            doc = nlp(text)
+            for chunk in getattr(doc, "noun_chunks", []):
+                normalized = _normalize_term(str(chunk.text))
+                if not normalized or normalized in _SIMPLE_STOPWORDS:
+                    continue
+                counts[normalized.lower()] += 1
+                display.setdefault(normalized.lower(), normalized)
+        return [display[key] for key, count in counts.items() if count >= min_frequency]
+
+    def _load_spacy_model(self) -> Any:
+        try:
+            import spacy  # type: ignore[import-not-found]
+        except ModuleNotFoundError as exc:
+            raise RuntimeError("SpaCy is not installed. Install with: pip install -e '.[clustering]'") from exc
+        try:
+            return spacy.load(self.model_name)
+        except OSError as exc:
+            raise RuntimeError(
+                f"SpaCy model {self.model_name!r} is not installed. "
+                f"Run: python -m spacy download {self.model_name}"
+            ) from exc
+
+
+@dataclass(frozen=True)
+class SentenceTransformerEmbeddingProvider:
+    """Production term embedding provider with lazy sentence-transformers loading."""
+
+    model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    model: Any | None = None
+    backend_name: str = "sentence-transformers"
+
+    def embed_terms(self, terms: Sequence[str]) -> EmbeddingMap:
+        model = self.model if self.model is not None else self._load_model()
+        ordered_terms = list(terms)
+        encoded = model.encode(ordered_terms, normalize_embeddings=True)
+        return {
+            term: tuple(float(value) for value in vector)
+            for term, vector in zip(ordered_terms, encoded)
+        }
+
+    def _load_model(self) -> Any:
+        try:
+            from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "sentence-transformers is not installed. Install with: pip install -e '.[clustering]'"
+            ) from exc
+        return SentenceTransformer(self.model_name)
+
+
+@dataclass(frozen=True)
+class AffinityPropagationClusterer:
+    """Cluster embeddings with scikit-learn AffinityPropagation.
+
+    The adapter uses a precomputed cosine similarity matrix and lazy imports so
+    the base package remains lightweight.
+    """
+
+    preference: float | None = None
+    random_state: int | None = 0
+    affinity_propagation_cls: Any | None = None
+    backend_name: str = "sklearn-affinity-propagation"
+
+    def cluster(self, terms: Sequence[str], vectors: Mapping[str, tuple[float, ...]]) -> dict[str, int]:
+        if not terms:
+            return {}
+        affinity_propagation_cls = (
+            self.affinity_propagation_cls
+            if self.affinity_propagation_cls is not None
+            else self._load_affinity_propagation_cls()
+        )
+        matrix = [[_cosine(vectors[left], vectors[right]) for right in terms] for left in terms]
+        model = affinity_propagation_cls(
+            affinity="precomputed",
+            random_state=self.random_state,
+            preference=self.preference,
+        )
+        fitted = model.fit(matrix)
+        labels = list(getattr(fitted, "labels_"))
+        return {term: int(label) for term, label in zip(terms, labels)}
+
+    def _load_affinity_propagation_cls(self) -> Any:
+        try:
+            from sklearn.cluster import AffinityPropagation  # type: ignore[import-not-found]
+        except ModuleNotFoundError as exc:
+            raise RuntimeError("scikit-learn is not installed. Install with: pip install -e '.[clustering]'") from exc
+        return AffinityPropagation
+
+
+@dataclass(frozen=True)
+class _FallbackTermExtractor:
+    backend_name: str = "regex-fallback"
+
+    def extract_terms(self, texts: Iterable[str], *, min_frequency: int = 1) -> list[str]:
+        return _extract_terms_with_fallback(texts, min_frequency=min_frequency)
+
+
+def _extract_terms_with_fallback(texts: Iterable[str], *, min_frequency: int = 1) -> list[str]:
     counts: Counter[str] = Counter()
     display: dict[str, str] = {}
     for text in texts:
@@ -147,14 +295,20 @@ def discover_schema_from_texts(
     texts: Iterable[str],
     *,
     embeddings: EmbeddingMap | None = None,
+    embedding_provider: EmbeddingProviderProtocol | None = None,
+    term_extractor: TermExtractorProtocol | None = None,
+    clusterer: ClustererProtocol | None = None,
     min_frequency: int = 1,
     similarity_threshold: float = 0.78,
 ) -> SchemaDiscoveryReport:
     """Extract terms from text and cluster them into schema-discovery suggestions."""
-    terms = extract_terms(texts, min_frequency=min_frequency)
+    extractor = term_extractor or _FallbackTermExtractor()
+    terms = extractor.extract_terms(texts, min_frequency=min_frequency)
     return discover_schema_from_terms(
         terms,
         embeddings=embeddings,
+        embedding_provider=embedding_provider,
+        clusterer=clusterer,
         similarity_threshold=similarity_threshold,
     )
 
@@ -163,16 +317,19 @@ def discover_schema_from_terms(
     terms: Iterable[str],
     *,
     embeddings: EmbeddingMap | None = None,
+    embedding_provider: EmbeddingProviderProtocol | None = None,
+    clusterer: ClustererProtocol | None = None,
     similarity_threshold: float = 0.78,
 ) -> SchemaDiscoveryReport:
     """Cluster candidate terms and return a human-reviewable schema draft report.
 
-    If explicit embeddings are supplied, they are used directly. Otherwise the
-    function uses deterministic character n-gram vectors so the base package has
-    no mandatory clustering/embedding dependency.  If scikit-learn is installed,
-    callers can still install the optional ``clustering`` extra for future heavy
-    integrations; this function keeps the smoke path deterministic and light.
+    The production path can combine ``SentenceTransformerEmbeddingProvider`` with
+    ``AffinityPropagationClusterer``. The default path remains deterministic and
+    dependency-light for CI/reviewer smoke tests.
     """
+    if embeddings is not None and embedding_provider is not None:
+        raise ValueError("Pass either embeddings or embedding_provider, not both.")
+
     unique_terms = _dedupe_terms(terms)
     if not unique_terms:
         return SchemaDiscoveryReport(
@@ -182,13 +339,18 @@ def discover_schema_from_terms(
             warnings=("No candidate terms were provided.",),
         )
 
-    vector_map = _vectors_for_terms(unique_terms, embeddings)
-    labels = _cluster_by_similarity(unique_terms, vector_map, similarity_threshold)
+    vector_map = _vectors_for_terms(unique_terms, embeddings, embedding_provider)
+    if clusterer is None:
+        labels = _cluster_by_similarity(unique_terms, vector_map, similarity_threshold)
+        backend = "deterministic-similarity-fallback"
+    else:
+        labels = clusterer.cluster(unique_terms, vector_map)
+        backend = clusterer.backend_name
     clusters = _build_clusters(unique_terms, labels, vector_map)
     return SchemaDiscoveryReport(
         clusters=tuple(clusters),
         term_count=len(unique_terms),
-        backend="deterministic-similarity-fallback",
+        backend=backend,
         warnings=(
             "Generated clusters are schema-discovery suggestions only and require human review.",
         ),
@@ -228,12 +390,22 @@ def _dedupe_terms(terms: Iterable[str]) -> list[str]:
     return unique
 
 
-def _vectors_for_terms(terms: Sequence[str], embeddings: EmbeddingMap | None) -> dict[str, tuple[float, ...]]:
+def _vectors_for_terms(
+    terms: Sequence[str],
+    embeddings: EmbeddingMap | None,
+    embedding_provider: EmbeddingProviderProtocol | None,
+) -> dict[str, tuple[float, ...]]:
     if embeddings is not None:
         missing = [term for term in terms if term not in embeddings]
         if missing:
             raise ValueError(f"Missing embeddings for terms: {', '.join(missing)}")
         return {term: tuple(float(value) for value in embeddings[term]) for term in terms}
+    if embedding_provider is not None:
+        provided = embedding_provider.embed_terms(terms)
+        missing = [term for term in terms if term not in provided]
+        if missing:
+            raise ValueError(f"Embedding provider missed terms: {', '.join(missing)}")
+        return {term: tuple(float(value) for value in provided[term]) for term in terms}
     return {term: _char_ngram_vector(term) for term in terms}
 
 
