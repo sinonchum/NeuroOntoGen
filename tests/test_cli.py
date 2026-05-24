@@ -1,8 +1,10 @@
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
 
 from neuro_onto_gen.cli import app
+from neuro_onto_gen.core.extraction import JsonExtractionAdapter
 
 runner = CliRunner()
 
@@ -86,3 +88,54 @@ def test_validate_turtle_command_exits_nonzero_and_prints_violations(
     assert result.exit_code == 1
     assert "conforms: false" in result.output.lower()
     assert "requiredClearance" in result.output
+
+
+def test_extract_command_uses_xiaomi_mimo_provider_and_prints_validated_json(
+    monkeypatch,
+) -> None:
+    raw_output = {
+        "employees": [{"emp_id": "E-001", "has_access_level": 3}],
+        "secure_assets": [{"asset_id": "VPN", "required_clearance": 2}],
+        "relations": [
+            {
+                "subject_emp_id": "E-001",
+                "predicate": "operates",
+                "object_asset_id": "VPN",
+            }
+        ],
+    }
+    adapter = JsonExtractionAdapter(raw_output=raw_output)
+
+    monkeypatch.setattr(
+        "neuro_onto_gen.cli.build_extraction_adapter",
+        lambda provider_name: adapter,
+    )
+
+    result = runner.invoke(
+        app,
+        ["extract", "Employee E-001 operates secure asset VPN."],
+    )
+
+    assert result.exit_code == 0, result.output
+    parsed = json.loads(result.output)
+    assert parsed["employees"][0]["emp_id"] == "E-001"
+    assert parsed["secure_assets"][0]["asset_id"] == "VPN"
+    assert parsed["relations"][0]["predicate"] == "operates"
+
+
+def test_extract_command_reports_provider_configuration_errors(monkeypatch) -> None:
+    def raise_configuration_error(_provider_name):
+        from neuro_onto_gen.providers import ProviderConfigurationError
+
+        raise ProviderConfigurationError("XIAOMI_API_KEY is required")
+
+    monkeypatch.setattr(
+        "neuro_onto_gen.cli.build_extraction_adapter",
+        raise_configuration_error,
+    )
+
+    result = runner.invoke(app, ["extract", "Employee E-001 operates VPN."])
+
+    assert result.exit_code == 2
+    assert "provider_config_error" in result.output
+    assert "XIAOMI_API_KEY" in result.output

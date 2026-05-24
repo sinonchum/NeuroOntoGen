@@ -60,11 +60,12 @@ This is intentionally small. It gives the project a reproducible semantic pipeli
 | Raw extraction normalization | Implemented | JSON-like provider output can be parsed into a validated `ABoxPayload`. |
 | Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections. |
 | Provider-backed extraction boundary | Implemented | A protocol-based adapter builds prompts, calls a provider client, and validates provider output. |
-| Production LLM SDK integration | Planned | Concrete OpenAI, Anthropic, or local-model adapters are intentionally deferred. |
+| Xiaomi MiMo provider integration | Implemented | OpenAI-compatible `mimo-v2.5-pro` adapter using `XIAOMI_API_KEY`, `XIAOMI_BASE_URL`, and the `extract` CLI command. |
+| Production LLM SDK integration | Partially implemented | Xiaomi MiMo is wired as the first production provider; OpenAI, Anthropic, and local-model adapters remain planned. |
 | Repair failure taxonomy | Implemented | Repair failures carry machine-readable reasons and error messages. |
 | OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing. |
 | Prompt stability evaluation | Implemented | Compares parseable Turtle outputs across prompt variants using canonical RDF triples, consensus graph coverage, and per-variant precision/recall/F1 diagnostics. |
-| Clustering discovery | Planned | Intended for schema discovery, not direct production schema writes. |
+| Clustering discovery | Implemented | Deterministic term extraction/embedding fallback, clustering, human-review flags, and LinkML draft generation; heavier AP/SpaCy/ST integrations remain planned. |
 
 ## Architecture
 
@@ -194,6 +195,17 @@ neuro-onto-gen validate-turtle examples/company/valid_abox.ttl build/schema/comp
 
 The validation command prints `conforms: true` and exits `0` for conforming graphs. For non-conforming graphs, such as `examples/company/invalid_abox.ttl`, it prints structured violation details and exits `1`.
 
+Extract source text with the Xiaomi MiMo provider:
+
+```bash
+export XIAOMI_API_KEY="..."
+export XIAOMI_BASE_URL="https://token-plan-cn.xiaomimimo.com/v1"
+export XIAOMI_MODEL="mimo-v2.5-pro"
+neuro-onto-gen extract "Employee E-001 has access level 3 and operates secure asset VPN requiring clearance 2."
+```
+
+The `extract` command renders the schema-constrained CompanyAccess prompt, calls the OpenAI-compatible MiMo chat-completions endpoint, and prints only Pydantic-validated ABox JSON. Missing provider configuration exits `2`; provider HTTP/shape errors exit `3`; schema validation failures exit `4`.
+
 Run an optional OWL consistency check:
 
 ```bash
@@ -240,9 +252,10 @@ Run linting:
 Current local verification target:
 
 ```text
-49 passed
+62 passed
 All checks passed
 Notebook execution succeeds with nbconvert
+GitHub Actions CI succeeds on `main`
 ```
 
 ## Repository layout
@@ -271,6 +284,9 @@ NeuroOntoGen/
 |-- src/
 |   `-- neuro_onto_gen/
 |       |-- cli.py
+|       |-- clustering/
+|       |   |-- __init__.py
+|       |   `-- discovery.py
 |       |-- core/
 |       |   |-- models.py
 |       |   |-- owl_reasoner.py
@@ -279,7 +295,11 @@ NeuroOntoGen/
 |       |   |-- serializer.py
 |       |   `-- validation.py
 |       |-- evaluation/
-|       |   `-- metrics.py
+|       |   |-- metrics.py
+|       |   `-- prompt_stability.py
+|       |-- providers/
+|       |   |-- __init__.py
+|       |   `-- xiaomi_mimo.py
 |       `-- schema/
 |           `-- compiler.py
 |-- tests/
@@ -327,14 +347,16 @@ Partially implemented:
 - raw extraction JSON normalization;
 - schema-constrained extraction prompt builder;
 - provider-backed extraction adapter boundary;
+- Xiaomi MiMo `mimo-v2.5-pro` OpenAI-compatible provider adapter;
+- CLI `extract` command for provider-backed validated ABox JSON;
 - relation endpoint validation;
 - deterministic Turtle serialization;
 - RDF graph assertions in tests.
 
 Next:
 
-- concrete production LLM SDK integration;
-- provider error taxonomy and retry semantics.
+- concrete OpenAI, Anthropic, or local-model SDK integration;
+- provider retry semantics beyond the current Xiaomi MiMo HTTP boundary.
 
 ### Phase 3: Validation and repair
 
@@ -390,11 +412,11 @@ Some of these documents are still design drafts and may describe planned feature
 
 ## Current limitations
 
-- No production LLM SDK adapter yet.
+- Xiaomi MiMo `mimo-v2.5-pro` is the first provider-backed extraction integration; OpenAI, Anthropic, and local-model adapters are not implemented yet.
 - No production repairer implementation yet.
 - OWL reasoning requires optional `.[owl]` dependencies and a Java runtime; the base install only reports availability/unavailability and does not force Java into CI.
 - No graph database connector yet.
-- CLI coverage is limited to schema compilation and Turtle validation smoke commands.
+- CLI coverage includes schema compilation, Turtle validation, optional OWL availability/consistency checks, and Xiaomi MiMo-backed extraction; repair CLI remains planned.
 - The current ontology fixture is a small company-access example, not a general domain model.
 
 These limits are intentional. The first goal is a reproducible, testable semantic validation core.

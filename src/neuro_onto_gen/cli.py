@@ -5,12 +5,27 @@ from __future__ import annotations
 from pathlib import Path
 
 import typer
+from pydantic import ValidationError
 
+from neuro_onto_gen.core.extraction import ExtractorProtocol, PromptedExtractionAdapter
 from neuro_onto_gen.core.owl_reasoner import OwlReasonerUnavailable, reason_owl_turtle
 from neuro_onto_gen.core.validation import parse_shacl_violations, validate_abox_turtle
+from neuro_onto_gen.providers import (
+    ProviderConfigurationError,
+    ProviderResponseError,
+    XiaomiMiMoProvider,
+)
 from neuro_onto_gen.schema.compiler import compile_schema
 
 app = typer.Typer(help="NeuroOntoGen command line interface.")
+
+
+def build_extraction_adapter(provider_name: str) -> ExtractorProtocol:
+    """Build an extraction adapter for a named production provider."""
+    normalized = provider_name.strip().lower()
+    if normalized in {"xiaomi", "xiaomi-mimo", "mimo"}:
+        return PromptedExtractionAdapter(provider=XiaomiMiMoProvider.from_env())
+    raise ProviderConfigurationError(f"unsupported extraction provider: {provider_name}")
 
 
 @app.callback()
@@ -52,6 +67,33 @@ def validate_turtle_command(
         typer.echo(f"  severity: {violation.severity}")
         typer.echo(f"  message: {violation.message}")
     raise typer.Exit(code=1)
+
+
+@app.command("extract")
+def extract_command(
+    text: str = typer.Argument(..., help="Source text to extract into validated ABox JSON."),
+    provider: str = typer.Option(
+        "xiaomi-mimo",
+        "--provider",
+        help="Extraction provider name. Supported: xiaomi-mimo.",
+    ),
+) -> None:
+    """Extract a validated CompanyAccess ABox payload from source text."""
+    try:
+        adapter = build_extraction_adapter(provider)
+        payload = adapter.extract(text)
+    except ProviderConfigurationError as exc:
+        typer.echo(f"provider_config_error: {exc}")
+        raise typer.Exit(code=2) from exc
+    except ProviderResponseError as exc:
+        typer.echo(f"provider_response_error: {exc}")
+        raise typer.Exit(code=3) from exc
+    except ValidationError as exc:
+        typer.echo("extraction_validation_error:")
+        typer.echo(str(exc))
+        raise typer.Exit(code=4) from exc
+
+    typer.echo(payload.model_dump_json(indent=2))
 
 
 @app.command("reason-owl")
