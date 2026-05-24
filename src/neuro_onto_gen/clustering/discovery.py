@@ -47,6 +47,24 @@ class ClustererProtocol(Protocol):
         ...
 
 
+class CompletionProviderProtocol(Protocol):
+    """Protocol for provider clients that can complete naming prompts."""
+
+    def complete(self, prompt: str) -> str:
+        """Return a model completion for a prompt."""
+        ...
+
+
+class ClusterNamerProtocol(Protocol):
+    """Protocol for optional production cluster-label generators."""
+
+    backend_name: str
+
+    def name_cluster(self, *, exemplar: str, terms: Sequence[str]) -> str:
+        """Return a human-readable class label for a discovered cluster."""
+        ...
+
+
 @dataclass(frozen=True)
 class ClusterMember:
     """A candidate term assigned to a discovered cluster."""
@@ -269,6 +287,39 @@ class AffinityPropagationClusterer:
 
 
 @dataclass(frozen=True)
+class LlmClusterNamer:
+    """Production cluster namer backed by an LLM completion provider.
+
+    The returned label is still a draft ontology class name and must be reviewed
+    by a human domain expert before promotion into a canonical TBox.
+    """
+
+    provider: CompletionProviderProtocol
+    ontology_name: str = "DiscoveredOntology"
+    backend_name: str = "llm-cluster-namer"
+
+    def name_cluster(self, *, exemplar: str, terms: Sequence[str]) -> str:
+        prompt = self._build_prompt(exemplar=exemplar, terms=terms)
+        return _sanitize_class_label(self.provider.complete(prompt), fallback=exemplar)
+
+    def _build_prompt(self, *, exemplar: str, terms: Sequence[str]) -> str:
+        numbered_terms = "\n".join(f"{index}. {term}" for index, term in enumerate(terms, start=1))
+        return (
+            "# NeuroOntoGen Cluster Naming Prompt\n"
+            f"Ontology: {self.ontology_name}\n"
+            f"Cluster exemplar: {exemplar}\n\n"
+            "## Candidate terms\n"
+            f"{numbered_terms}\n\n"
+            "## Task\n"
+            "Return exactly one PascalCase class label for this draft ontology cluster. "
+            "The label must be concise, domain-neutral, and suitable for human ontology review. "
+            "Do not include Markdown, quotes, explanations, properties, or unrelated entities.\n\n"
+            "## Output Contract\n"
+            "Return exactly one PascalCase class label."
+        )
+
+
+@dataclass(frozen=True)
 class _FallbackTermExtractor:
     backend_name: str = "regex-fallback"
 
@@ -298,6 +349,7 @@ def discover_schema_from_texts(
     embedding_provider: EmbeddingProviderProtocol | None = None,
     term_extractor: TermExtractorProtocol | None = None,
     clusterer: ClustererProtocol | None = None,
+    cluster_namer: ClusterNamerProtocol | None = None,
     min_frequency: int = 1,
     similarity_threshold: float = 0.78,
 ) -> SchemaDiscoveryReport:
@@ -309,6 +361,7 @@ def discover_schema_from_texts(
         embeddings=embeddings,
         embedding_provider=embedding_provider,
         clusterer=clusterer,
+        cluster_namer=cluster_namer,
         similarity_threshold=similarity_threshold,
     )
 
@@ -319,13 +372,15 @@ def discover_schema_from_terms(
     embeddings: EmbeddingMap | None = None,
     embedding_provider: EmbeddingProviderProtocol | None = None,
     clusterer: ClustererProtocol | None = None,
+    cluster_namer: ClusterNamerProtocol | None = None,
     similarity_threshold: float = 0.78,
 ) -> SchemaDiscoveryReport:
     """Cluster candidate terms and return a human-reviewable schema draft report.
 
     The production path can combine ``SentenceTransformerEmbeddingProvider`` with
-    ``AffinityPropagationClusterer``. The default path remains deterministic and
-    dependency-light for CI/reviewer smoke tests.
+    ``AffinityPropagationClusterer`` and an optional ``LlmClusterNamer``. The
+    default path remains deterministic and dependency-light for CI/reviewer
+    smoke tests.
     """
     if embeddings is not None and embedding_provider is not None:
         raise ValueError("Pass either embeddings or embedding_provider, not both.")
@@ -346,14 +401,16 @@ def discover_schema_from_terms(
     else:
         labels = clusterer.cluster(unique_terms, vector_map)
         backend = clusterer.backend_name
-    clusters = _build_clusters(unique_terms, labels, vector_map)
+    clusters = _build_clusters(unique_terms, labels, vector_map, cluster_namer)
+    warnings = ["Generated clusters are schema-discovery suggestions only and require human review."]
+    if cluster_namer is not None:
+        backend = f"{backend}+{cluster_namer.backend_name}"
+        warnings.append("LLM-generated cluster labels require human ontology review.")
     return SchemaDiscoveryReport(
         clusters=tuple(clusters),
         term_count=len(unique_terms),
         backend=backend,
-        warnings=(
-            "Generated clusters are schema-discovery suggestions only and require human review.",
-        ),
+        warnings=tuple(warnings),
     )
 
 
@@ -446,6 +503,7 @@ def _build_clusters(
     terms: Sequence[str],
     labels: Mapping[str, int],
     vectors: Mapping[str, tuple[float, ...]],
+    cluster_namer: ClusterNamerProtocol | None = None,
 ) -> list[DiscoveredCluster]:
     grouped: dict[int, list[str]] = defaultdict(list)
     for term in terms:
@@ -459,9 +517,14 @@ def _build_clusters(
             ClusterMember(term=term, similarity_to_exemplar=_cosine(vectors[term], vectors[exemplar]))
             for term in sorted(cluster_terms, key=str.lower)
         )
+        label = (
+            cluster_namer.name_cluster(exemplar=exemplar, terms=[member.term for member in members])
+            if cluster_namer is not None
+            else _to_pascal_case(exemplar)
+        )
         clusters.append(
             DiscoveredCluster(
-                label=_to_pascal_case(exemplar),
+                label=label,
                 exemplar=exemplar,
                 members=members,
             )
@@ -497,6 +560,16 @@ def _cosine(left: NumberVector, right: NumberVector) -> float:
     if left_norm == 0.0 or right_norm == 0.0:
         return 0.0
     return numerator / (left_norm * right_norm)
+
+
+def _sanitize_class_label(label: str, *, fallback: str) -> str:
+    stripped = label.strip()
+    fence_match = re.fullmatch(r"```(?:text)?\s*\n(?P<body>.*?)\n?```", stripped, flags=re.DOTALL)
+    if fence_match is not None:
+        stripped = fence_match.group("body").strip()
+    first_line = stripped.splitlines()[0] if stripped.splitlines() else ""
+    sanitized = _to_pascal_case(first_line)
+    return sanitized or _to_pascal_case(fallback)
 
 
 def _to_pascal_case(value: str) -> str:

@@ -4,7 +4,7 @@ NeuroOntoGen is an SDK-first research project for building ontology-generation p
 
 The project combines flexible extraction with symbolic validation. LLMs can propose ABox facts, but LinkML, Pydantic, RDF, and SHACL define the contract that decides whether those facts are usable.
 
-> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, OpenAI-compatible provider adapters, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded LLM-backed repair orchestration, optional OWL reasoner availability/consistency checks, cross-prompt RDF graph stability evaluation, clustering-based schema discovery, and smoke-testable CLI commands. Heavier clustering integrations, OWL-to-repair diagnostics, graph database connectors, and MCP adapters remain planned.
+> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, OpenAI-compatible provider adapters, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded LLM-backed repair orchestration, optional OWL reasoner availability/consistency checks and repair, cross-prompt RDF graph stability evaluation, clustering-based schema discovery with optional LLM cluster naming, and smoke-testable CLI commands. Graph database connectors and MCP adapters remain planned.
 
 ## Why this exists
 
@@ -64,7 +64,7 @@ The typed ABox payload currently covers the extraction MVP subset (`Employee`, `
 | Repair failure taxonomy | Implemented | Repair failures carry machine-readable reasons and error messages. |
 | OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing; `repair-owl` wraps OWL diagnostics, LLM repair, and bounded re-reasoning. |
 | Prompt stability evaluation | Implemented | Compares parseable Turtle outputs across prompt variants using canonical RDF triples, consensus graph coverage, and per-variant precision/recall/F1 diagnostics. |
-| Clustering discovery | Implemented | Deterministic fallback plus optional SpaCy noun-chunk extraction, sentence-transformer embeddings, scikit-learn AffinityPropagation clustering, human-review flags, and LinkML draft generation. |
+| Clustering discovery | Implemented | Deterministic fallback plus optional SpaCy noun-chunk extraction, sentence-transformer embeddings, scikit-learn AffinityPropagation clustering, optional LLM-based cluster naming, human-review flags, and LinkML draft generation. |
 
 ## Architecture
 
@@ -250,6 +250,30 @@ jupyter nbconvert --to notebook --execute notebooks/end_to_end_demo.ipynb --outp
 
 The notebook is deterministic and uses a mock repairer, so it does not require production LLM credentials.
 
+### Optional LLM cluster naming
+
+Cold-start schema discovery can keep deterministic exemplar-derived labels or use an injected provider-backed namer:
+
+```python
+from neuro_onto_gen.clustering import LlmClusterNamer, discover_schema_from_terms
+from neuro_onto_gen.providers import DeepSeekProvider
+
+report = discover_schema_from_terms(
+    ["Company", "Organization", "Employer"],
+    embeddings={
+        "Company": [1.0, 0.0],
+        "Organization": [0.96, 0.04],
+        "Employer": [0.92, 0.08],
+    },
+    cluster_namer=LlmClusterNamer(
+        provider=DeepSeekProvider.from_env(),
+        ontology_name="CompanyAccess",
+    ),
+)
+```
+
+`LlmClusterNamer` asks for exactly one PascalCase class label, strips accidental Markdown fences, records the naming backend in the report, and keeps the generated LinkML draft marked as requiring human ontology review.
+
 ## Development
 
 Run the test suite:
@@ -267,7 +291,7 @@ Run linting:
 Current local verification target:
 
 ```text
-71 passed
+82 passed
 All checks passed
 Notebook execution succeeds with nbconvert
 GitHub Actions CI succeeds on `main`
@@ -399,11 +423,12 @@ Implemented:
 - optional OWL reasoner adapter with lazy dependency checks and CLI unavailable-state reporting;
 - OWL inconsistency diagnostics plus bounded `OwlRepairController` revalidation loop;
 - clustering-based schema discovery with deterministic fallback plus optional SpaCy / sentence-transformer / scikit-learn AffinityPropagation adapters;
+- optional provider-backed `LlmClusterNamer` for review-safe PascalCase cluster labels;
 - prompt-stability evaluation with RDF graph canonicalization and graph-level diagnostics.
 
 Planned:
 
-- production LLM-based cluster naming.
+- graph database connector design and smoke adapter.
 
 ### Phase 5: Usability layer
 
@@ -435,7 +460,8 @@ Some of these documents are still design drafts and may describe planned feature
 - Provider retry/backoff is not implemented yet.
 - OWL reasoning requires optional `.[owl]` dependencies and a Java runtime; the base install only reports availability/unavailability and does not force Java into CI.
 - No graph database connector yet.
-- CLI coverage includes schema compilation, Turtle validation, provider-backed extraction, provider-backed Turtle repair, and optional OWL availability/consistency checks.
+- CLI coverage includes schema compilation, Turtle validation, provider-backed extraction, provider-backed Turtle repair, optional OWL availability/consistency checks, and OWL repair orchestration.
+- LLM cluster naming is provider-backed but advisory only; generated class labels and LinkML drafts still require human ontology review.
 - Pydantic extraction models currently cover the CompanyAccess MVP subset; the production LinkML schema is larger than the extraction payload contract.
 
 These limits are intentional. The first goal is a reproducible, testable semantic validation core.
