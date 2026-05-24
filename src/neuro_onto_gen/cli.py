@@ -9,7 +9,13 @@ from pydantic import ValidationError
 
 from neuro_onto_gen.core.extraction import ExtractorProtocol, PromptedExtractionAdapter
 from neuro_onto_gen.core.owl_reasoner import OwlReasonerUnavailable, reason_owl_turtle
-from neuro_onto_gen.core.repair import LlmTurtleRepairer, RepairController, RepairFailure
+from neuro_onto_gen.core.repair import (
+    LlmTurtleRepairer,
+    OwlRepairController,
+    OwlRepairFailure,
+    RepairController,
+    RepairFailure,
+)
 from neuro_onto_gen.core.validation import parse_shacl_violations, validate_abox_turtle
 from neuro_onto_gen.providers import (
     DeepSeekProvider,
@@ -112,6 +118,59 @@ def repair_turtle_command(
         raise typer.Exit(code=3) from exc
     except RepairFailure as exc:
         typer.echo(f"repair_failed: {exc.result.failure_reason}")
+        if exc.result.error_message:
+            typer.echo(f"error_message: {exc.result.error_message}")
+        typer.echo(f"attempts: {len(exc.result.attempts)}")
+        raise typer.Exit(code=5) from exc
+
+    typer.echo(result.final_turtle)
+
+
+@app.command("repair-owl")
+def repair_owl_command(
+    turtle_path: Path = typer.Argument(..., help="Path to the OWL/RDF Turtle ontology to repair."),
+    provider: str = typer.Option(
+        "deepseek",
+        "--provider",
+        help="Completion provider name. Supported: xiaomi-mimo, deepseek.",
+    ),
+    max_attempts: int = typer.Option(2, "--max-attempts", help="Maximum OWL repair attempts."),
+) -> None:
+    """Repair an OWL-inconsistent Turtle ontology using an LLM and re-run the reasoner."""
+
+    class LazyProviderRepairer:
+        def __init__(self, provider_name: str) -> None:
+            self.provider_name = provider_name
+            self._repairer: LlmTurtleRepairer | None = None
+
+        def repair(self, turtle: str, violations, attempt_number: int) -> str:
+            if self._repairer is None:
+                self._repairer = LlmTurtleRepairer(
+                    provider=build_completion_provider(self.provider_name),
+                    ontology_name="OWLConsistency",
+                )
+            return self._repairer.repair(turtle, violations, attempt_number)
+
+    try:
+        controller = OwlRepairController(
+            reasoner=reason_owl_turtle,
+            repairer=LazyProviderRepairer(provider),
+            max_attempts=max_attempts,
+        )
+        result = controller.repair_until_consistent(turtle_path.read_text(encoding="utf-8"))
+    except OwlReasonerUnavailable as exc:
+        typer.echo("available: false")
+        typer.echo(f"reason: {exc.status.reason}")
+        typer.echo(f"install_hint: {exc.status.install_hint}")
+        raise typer.Exit(code=2) from exc
+    except ProviderConfigurationError as exc:
+        typer.echo(f"provider_config_error: {exc}")
+        raise typer.Exit(code=2) from exc
+    except ProviderResponseError as exc:
+        typer.echo(f"provider_response_error: {exc}")
+        raise typer.Exit(code=3) from exc
+    except OwlRepairFailure as exc:
+        typer.echo(f"owl_repair_failed: {exc.result.failure_reason}")
         if exc.result.error_message:
             typer.echo(f"error_message: {exc.result.error_message}")
         typer.echo(f"attempts: {len(exc.result.attempts)}")

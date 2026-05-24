@@ -50,7 +50,7 @@ The typed ABox payload currently covers the extraction MVP subset (`Employee`, `
 | Structured SHACL violation parser | Implemented | Validation report graphs are parsed into repair-ready violation objects. |
 | Bounded self-repair controller | Implemented | Fake repairer tests cover success, already-valid passthrough, hard failure after retry limits, and repairer exceptions. |
 | LLM Turtle repairer | Implemented | Builds repair prompts from structured SHACL violations, calls a completion provider, strips accidental Turtle fences, and revalidates through the bounded controller. |
-| CLI | Implemented | Typer commands compile schemas, validate Turtle graphs, extract ABox JSON, repair Turtle graphs, and run optional OWL checks. |
+| CLI | Implemented | Typer commands compile schemas, validate Turtle graphs, extract ABox JSON, repair SHACL-invalid Turtle graphs, repair OWL-inconsistent Turtle graphs, and run optional OWL checks. |
 | Runnable examples | Implemented | `examples/company/` includes conforming and non-conforming Turtle smoke fixtures. |
 | GitHub Actions CI | Implemented | Runs install, Ruff, pytest, and CLI smoke checks on push and pull request. |
 | Benchmark skeleton | Implemented | Quick benchmark emits JSON and optional Markdown summaries for the company examples. |
@@ -62,7 +62,7 @@ The typed ABox payload currently covers the extraction MVP subset (`Employee`, `
 | DeepSeek provider integration | Implemented | OpenAI-compatible `deepseek-v4-pro` adapter using `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, and `DEEPSEEK_MODEL`; default for extraction and usable by repair. |
 | Production LLM SDK integration | Partially implemented | OpenAI-compatible provider base supports DeepSeek plus parked Xiaomi MiMo; direct OpenAI/Anthropic SDK adapters remain planned. |
 | Repair failure taxonomy | Implemented | Repair failures carry machine-readable reasons and error messages. |
-| OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing. |
+| OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing; `repair-owl` wraps OWL diagnostics, LLM repair, and bounded re-reasoning. |
 | Prompt stability evaluation | Implemented | Compares parseable Turtle outputs across prompt variants using canonical RDF triples, consensus graph coverage, and per-variant precision/recall/F1 diagnostics. |
 | Clustering discovery | Implemented | Deterministic fallback plus optional SpaCy noun-chunk extraction, sentence-transformer embeddings, scikit-learn AffinityPropagation clustering, human-review flags, and LinkML draft generation. |
 
@@ -221,7 +221,13 @@ Run an optional OWL consistency check:
 neuro-onto-gen reason-owl path/to/ontology.ttl
 ```
 
-The command exits `2` with a clear install hint when optional OWL dependencies or Java are unavailable. In SDK code, inconsistent OWL reports can also be converted into `OwlRepairDiagnostic` objects and passed through the same LLM Turtle repair prompt via `OwlRepairController`, then rechecked by the reasoner. To enable Pellet/HermiT-backed reasoning locally:
+The command exits `2` with a clear install hint when optional OWL dependencies or Java are unavailable. Inconsistent OWL reports can also be repaired through the LLM provider boundary and rechecked by the reasoner:
+
+```bash
+neuro-onto-gen repair-owl path/to/ontology.ttl --provider deepseek --max-attempts 2
+```
+
+`repair-owl` converts inconsistent reasoner reports into `OwlRepairDiagnostic` objects, passes them through the same Turtle repair prompt, reruns the OWL reasoner after each candidate, prints only the final consistent Turtle, and exits `5` if the bounded loop cannot converge. To enable Pellet/HermiT-backed reasoning locally:
 
 ```bash
 python -m pip install -e '.[owl]'
@@ -384,8 +390,7 @@ Implemented:
 
 Next:
 
-- richer repair policy selection;
-- production OWL repair CLI wrapping `OwlRepairController`.
+- richer repair policy selection.
 
 ### Phase 4: Reasoning and evaluation
 
