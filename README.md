@@ -4,7 +4,7 @@ NeuroOntoGen is an SDK-first research project for building ontology-generation p
 
 The project combines flexible extraction with symbolic validation. LLMs can propose ABox facts, but LinkML, Pydantic, RDF, and SHACL define the contract that decides whether those facts are usable.
 
-> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, OpenAI-compatible provider adapters, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded LLM-backed repair orchestration, optional OWL reasoner availability/consistency checks and repair, cross-prompt RDF graph stability evaluation, clustering-based schema discovery with optional LLM cluster naming, local in-memory graph repository smoke queries, and smoke-testable CLI commands. Remote graph database connectors and MCP adapters remain planned.
+> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, OpenAI-compatible provider adapters, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded LLM-backed repair orchestration, optional OWL reasoner availability/consistency checks and repair, cross-prompt RDF graph stability evaluation, clustering-based schema discovery with optional LLM cluster naming, local in-memory graph repository smoke queries, read/query-only remote SPARQL endpoint adapters, and smoke-testable CLI commands. MCP adapters remain planned.
 
 ## Why this exists
 
@@ -65,7 +65,7 @@ The typed ABox payload currently covers the extraction MVP subset (`Employee`, `
 | OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing; `repair-owl` wraps OWL diagnostics, LLM repair, and bounded re-reasoning. |
 | Prompt stability evaluation | Implemented | Compares parseable Turtle outputs across prompt variants using canonical RDF triples, consensus graph coverage, and per-variant precision/recall/F1 diagnostics. |
 | Clustering discovery | Implemented | Deterministic fallback plus optional SpaCy noun-chunk extraction, sentence-transformer embeddings, scikit-learn AffinityPropagation clustering, optional LLM-based cluster naming, human-review flags, and LinkML draft generation. |
-| Graph repository connector | Smoke adapter implemented | Local RDFLib in-memory repository loads Turtle, runs SELECT/CONSTRUCT/ASK SPARQL, exports Turtle, and opens no network connection by default. |
+| Graph repository connector | Implemented | Local RDFLib in-memory repository loads Turtle, runs SELECT/CONSTRUCT/ASK SPARQL, exports Turtle, and opens no network connection by default; `SPARQLEndpointRepository` adds read/query-only remote endpoint support through an injectable HTTP seam. |
 
 ## Architecture
 
@@ -296,6 +296,20 @@ print(result.rows)
 
 `InMemoryGraphRepository` is intended for deterministic smoke tests, local demos, and future connector-contract tests before remote GraphDB/Fuseki/Neptune/SPARQL-endpoint adapters are added.
 
+For read/query-only remote endpoints, use the SPARQL adapter. Construction is side-effect free; network I/O happens only when `query()` is called, and tests can inject a fake HTTP client:
+
+```python
+from neuro_onto_gen.graph import SPARQLEndpointRepository
+
+repository = SPARQLEndpointRepository(endpoint_url="https://graph.example/sparql")
+result = repository.query("""
+PREFIX ex: <http://example.org/company/>
+SELECT ?employee WHERE { ?employee a ex:Employee }
+""")
+```
+
+Remote Turtle loading/update is intentionally not implemented yet; adding writes requires an explicit SPARQL Update endpoint contract and safety policy.
+
 ## Development
 
 Run the test suite:
@@ -313,7 +327,7 @@ Run linting:
 Current local verification target:
 
 ```text
-85 passed
+91 passed
 All checks passed
 Notebook execution succeeds with nbconvert
 GitHub Actions CI succeeds on `main`
@@ -450,11 +464,12 @@ Implemented:
 - clustering-based schema discovery with deterministic fallback plus optional SpaCy / sentence-transformer / scikit-learn AffinityPropagation adapters;
 - optional provider-backed `LlmClusterNamer` for review-safe PascalCase cluster labels;
 - prompt-stability evaluation with RDF graph canonicalization and graph-level diagnostics;
-- local RDFLib `InMemoryGraphRepository` smoke adapter for SELECT/CONSTRUCT/ASK queries.
+- local RDFLib `InMemoryGraphRepository` smoke adapter for SELECT/CONSTRUCT/ASK queries;
+- read/query-only `SPARQLEndpointRepository` with injectable HTTP client seam and normalized SELECT/ASK JSON plus CONSTRUCT Turtle results.
 
 Planned:
 
-- remote GraphDB/Fuseki/Neptune/SPARQL endpoint adapters behind the graph repository protocol.
+- SPARQL Update / authenticated write adapters for GraphDB/Fuseki/Neptune after explicit safety policy.
 
 ### Phase 5: Usability layer
 
@@ -485,7 +500,7 @@ Some of these documents are still design drafts and may describe planned feature
 - Xiaomi MiMo is parked until valid credentials/endpoint access are available; DeepSeek is the default OpenAI-compatible provider for local smoke paths.
 - Provider retry/backoff is not implemented yet.
 - OWL reasoning requires optional `.[owl]` dependencies and a Java runtime; the base install only reports availability/unavailability and does not force Java into CI.
-- No remote graph database connector yet; the current graph repository is local RDFLib in-memory smoke infrastructure only.
+- Remote graph support is read/query-only; SPARQL Update writes, authentication, pagination, retry/backoff, and vendor-specific GraphDB/Fuseki/Neptune behavior still need explicit safety policy and connector tests.
 - CLI coverage includes schema compilation, Turtle validation, provider-backed extraction, provider-backed Turtle repair, optional OWL availability/consistency checks, and OWL repair orchestration.
 - LLM cluster naming is provider-backed but advisory only; generated class labels and LinkML drafts still require human ontology review.
 - Pydantic extraction models currently cover the CompanyAccess MVP subset; the production LinkML schema is larger than the extraction payload contract.
