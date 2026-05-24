@@ -31,6 +31,21 @@
 
 ---
 
+## 0.1 当前优先级调整（2026-05）
+
+按最新评审意见，当前工程优先级调整为：
+
+| Priority | Item | Current status after latest slice |
+|---|---|---|
+| P0 | 生产级 extraction provider + repair loop | Xiaomi MiMo + DeepSeek OpenAI-compatible providers are wired. `repair-turtle` now builds prompts from real SHACL violations, calls a provider, and revalidates bounded candidates. Xiaomi real smoke still needs a valid key because the local key returned `401 invalid_key`. |
+| P0 | 扩展本体规模和复杂度 | `schemas/company_schema.yaml` now has 9 classes with inheritance, domain/range slots, and required/cardinality constraints. Minimal test fixture remains separate. |
+| P1 | clustering 生产路径 | Still pending: SpaCy + sentence-transformers + scikit-learn AP path beyond deterministic fallback. |
+| P1 | OWL 推理到修复闭环 | Still pending: map real OWL inconsistency diagnostics into repair prompts. |
+| P2 | 真实数据集评估 | Still pending: FewRel/WebNLG/custom enterprise security benchmark cases. |
+| P2 | 生产基础设施 | Still pending: Neo4j connector, audit log, MCP server. |
+
+---
+
 ## 1. 总体阶段规划
 
 ```text

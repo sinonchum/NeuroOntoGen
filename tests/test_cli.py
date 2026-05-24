@@ -123,6 +123,65 @@ def test_extract_command_uses_xiaomi_mimo_provider_and_prints_validated_json(
     assert parsed["relations"][0]["predicate"] == "operates"
 
 
+def test_extract_command_accepts_deepseek_provider_name(monkeypatch) -> None:
+    seen_provider_names = []
+    adapter = JsonExtractionAdapter(
+        raw_output={"employees": [], "secure_assets": [], "relations": []}
+    )
+
+    def fake_build(provider_name):
+        seen_provider_names.append(provider_name)
+        return adapter
+
+    monkeypatch.setattr("neuro_onto_gen.cli.build_extraction_adapter", fake_build)
+
+    result = runner.invoke(app, ["extract", "No supported facts.", "--provider", "deepseek"])
+
+    assert result.exit_code == 0, result.output
+    assert seen_provider_names == ["deepseek"]
+    assert json.loads(result.output) == {"employees": [], "secure_assets": [], "relations": []}
+
+
+def test_repair_turtle_command_uses_provider_revalidates_and_prints_fixed_turtle(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    schema_dir = tmp_path / "schema"
+    compile_result = runner.invoke(
+        app,
+        ["compile-schema", "tests/fixtures/company_schema.yaml", str(schema_dir)],
+    )
+    assert compile_result.exit_code == 0, compile_result.output
+    data_path = tmp_path / "invalid.ttl"
+    data_path.write_text(INVALID_TURTLE, encoding="utf-8")
+
+    class FixedProvider:
+        def complete(self, prompt: str) -> str:
+            assert "SHACL Violations" in prompt
+            assert "requiredClearance" in prompt
+            return VALID_TURTLE
+
+    monkeypatch.setattr(
+        "neuro_onto_gen.cli.build_completion_provider",
+        lambda provider_name: FixedProvider(),
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "repair-turtle",
+            str(data_path),
+            str(schema_dir / "company_schema.shacl.ttl"),
+            "--provider",
+            "deepseek",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "ex:requiredClearance 2" in result.output
+    assert "ex:operates" in result.output
+
+
 def test_extract_command_reports_provider_configuration_errors(monkeypatch) -> None:
     def raise_configuration_error(_provider_name):
         from neuro_onto_gen.providers import ProviderConfigurationError

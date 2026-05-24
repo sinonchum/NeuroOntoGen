@@ -4,7 +4,7 @@ NeuroOntoGen is an SDK-first research project for building ontology-generation p
 
 The project combines flexible extraction with symbolic validation. LLMs can propose ABox facts, but LinkML, Pydantic, RDF, and SHACL define the contract that decides whether those facts are usable.
 
-> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, provider-neutral extraction adapter boundaries, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded repair orchestration, optional OWL reasoner availability/consistency checks, cross-prompt RDF graph stability evaluation, clustering-based schema discovery, and smoke-testable CLI commands. Production LLM SDK integrations, production repairers, heavier clustering integrations, and MCP adapters are planned but not yet production features.
+> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, OpenAI-compatible provider adapters, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded LLM-backed repair orchestration, optional OWL reasoner availability/consistency checks, cross-prompt RDF graph stability evaluation, clustering-based schema discovery, and smoke-testable CLI commands. Heavier clustering integrations, OWL-to-repair diagnostics, graph database connectors, and MCP adapters remain planned.
 
 ## Why this exists
 
@@ -30,29 +30,27 @@ Typed ABox payload
   -> conformance report
 ```
 
-The MVP starts with a small company-access ontology:
+The project now includes two CompanyAccess schema tracks:
 
-- `Employee`
-- `SecureAsset`
-- `operates`
-- `hasAccessLevel`
-- `requiredClearance`
+- `schemas/company_schema.yaml`: production-scale starter TBox with `CompanyEntity`, `Person`, `Employee`, `Contractor`, `Department`, `SecureAsset`, `DigitalAsset`, `PhysicalAsset`, and `AccessPolicy`, including inheritance, domain/range constraints, and required/cardinality constraints.
+- `tests/fixtures/company_schema.yaml`: intentionally minimal fixture used by deterministic unit tests and examples.
 
-This is intentionally small. It gives the project a reproducible semantic pipeline before adding model providers, repair loops, graph databases, or notebooks.
+The typed ABox payload currently covers the extraction MVP subset (`Employee`, `SecureAsset`, and `operates`) while the production LinkML schema exercises a more realistic KG shape.
 
 ## What is implemented now
 
 | Area | Status | Notes |
 |---|---:|---|
 | Python package skeleton | Implemented | Standard `src/` layout with editable install support. |
-| LinkML schema fixture | Implemented | `schemas/company_schema.yaml`. |
+| LinkML schema fixture | Implemented | `schemas/company_schema.yaml` is a production-scale starter TBox; `tests/fixtures/company_schema.yaml` remains the minimal deterministic fixture. |
 | Schema compiler wrapper | Implemented | Generates JSON Schema, SHACL, and Turtle artifacts. |
 | Pydantic ABox models | Implemented | Validates employees, secure assets, and `operates` relations. |
 | RDF/Turtle serializer | Implemented | Converts typed ABox payloads into parseable Turtle. |
 | SHACL validation loop | Implemented | Valid and invalid graphs are tested against generated SHACL. |
 | Structured SHACL violation parser | Implemented | Validation report graphs are parsed into repair-ready violation objects. |
 | Bounded self-repair controller | Implemented | Fake repairer tests cover success, already-valid passthrough, hard failure after retry limits, and repairer exceptions. |
-| CLI | Implemented | Typer commands compile schemas and validate Turtle graphs. |
+| LLM Turtle repairer | Implemented | Builds repair prompts from structured SHACL violations, calls a completion provider, strips accidental Turtle fences, and revalidates through the bounded controller. |
+| CLI | Implemented | Typer commands compile schemas, validate Turtle graphs, extract ABox JSON, repair Turtle graphs, and run optional OWL checks. |
 | Runnable examples | Implemented | `examples/company/` includes conforming and non-conforming Turtle smoke fixtures. |
 | GitHub Actions CI | Implemented | Runs install, Ruff, pytest, and CLI smoke checks on push and pull request. |
 | Benchmark skeleton | Implemented | Quick benchmark emits JSON and optional Markdown summaries for the company examples. |
@@ -60,8 +58,9 @@ This is intentionally small. It gives the project a reproducible semantic pipeli
 | Raw extraction normalization | Implemented | JSON-like provider output can be parsed into a validated `ABoxPayload`. |
 | Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections. |
 | Provider-backed extraction boundary | Implemented | A protocol-based adapter builds prompts, calls a provider client, and validates provider output. |
-| Xiaomi MiMo provider integration | Implemented | OpenAI-compatible `mimo-v2.5-pro` adapter using `XIAOMI_API_KEY`, `XIAOMI_BASE_URL`, and the `extract` CLI command. |
-| Production LLM SDK integration | Partially implemented | Xiaomi MiMo is wired as the first production provider; OpenAI, Anthropic, and local-model adapters remain planned. |
+| Xiaomi MiMo provider integration | Implemented | OpenAI-compatible `mimo-v2.5-pro` adapter using `XIAOMI_API_KEY`, `XIAOMI_BASE_URL`, and the `extract` / `repair-turtle` provider path. |
+| DeepSeek provider integration | Implemented | OpenAI-compatible `deepseek-v4-pro` adapter using `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, and `DEEPSEEK_MODEL`; usable by extraction and repair. |
+| Production LLM SDK integration | Partially implemented | OpenAI-compatible provider base supports Xiaomi MiMo and DeepSeek; direct OpenAI/Anthropic SDK adapters remain planned. |
 | Repair failure taxonomy | Implemented | Repair failures carry machine-readable reasons and error messages. |
 | OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing. |
 | Prompt stability evaluation | Implemented | Compares parseable Turtle outputs across prompt variants using canonical RDF triples, consensus graph coverage, and per-variant precision/recall/F1 diagnostics. |
@@ -195,16 +194,31 @@ neuro-onto-gen validate-turtle examples/company/valid_abox.ttl build/schema/comp
 
 The validation command prints `conforms: true` and exits `0` for conforming graphs. For non-conforming graphs, such as `examples/company/invalid_abox.ttl`, it prints structured violation details and exits `1`.
 
-Extract source text with the Xiaomi MiMo provider:
+Extract source text with an OpenAI-compatible provider:
 
 ```bash
+# Xiaomi MiMo
 export XIAOMI_API_KEY="..."
 export XIAOMI_BASE_URL="https://token-plan-cn.xiaomimimo.com/v1"
 export XIAOMI_MODEL="mimo-v2.5-pro"
-neuro-onto-gen extract "Employee E-001 has access level 3 and operates secure asset VPN requiring clearance 2."
+neuro-onto-gen extract "Employee E-001 has access level 3 and operates secure asset VPN requiring clearance 2." --provider xiaomi-mimo
+
+# DeepSeek
+export DEEPSEEK_API_KEY="..."
+export DEEPSEEK_BASE_URL="https://api.deepseek.com/v1"
+export DEEPSEEK_MODEL="deepseek-v4-pro"
+neuro-onto-gen extract "Employee E-001 has access level 3 and operates secure asset VPN requiring clearance 2." --provider deepseek
 ```
 
-The `extract` command renders the schema-constrained CompanyAccess prompt, calls the OpenAI-compatible MiMo chat-completions endpoint, and prints only Pydantic-validated ABox JSON. Missing provider configuration exits `2`; provider HTTP/shape errors exit `3`; schema validation failures exit `4`.
+The `extract` command renders the schema-constrained CompanyAccess prompt, calls the selected OpenAI-compatible chat-completions endpoint, and prints only Pydantic-validated ABox JSON. Missing provider configuration exits `2`; provider HTTP/shape errors exit `3`; schema validation failures exit `4`.
+
+Repair a non-conforming Turtle graph with the same provider boundary:
+
+```bash
+neuro-onto-gen repair-turtle examples/company/invalid_abox.ttl build/schema/company_schema.shacl.ttl --provider deepseek --max-attempts 2
+```
+
+The repair command parses real SHACL violations, builds a repair prompt, calls the provider, strips accidental Turtle fences, revalidates each candidate, prints only the final conforming Turtle, and exits `5` if the bounded repair loop cannot converge.
 
 Run an optional OWL consistency check:
 
@@ -252,7 +266,7 @@ Run linting:
 Current local verification target:
 
 ```text
-62 passed
+71 passed
 All checks passed
 Notebook execution succeeds with nbconvert
 GitHub Actions CI succeeds on `main`
@@ -299,6 +313,8 @@ NeuroOntoGen/
 |       |   `-- prompt_stability.py
 |       |-- providers/
 |       |   |-- __init__.py
+|       |   |-- deepseek.py
+|       |   |-- openai_compatible.py
 |       |   `-- xiaomi_mimo.py
 |       `-- schema/
 |           `-- compiler.py
@@ -348,6 +364,7 @@ Partially implemented:
 - schema-constrained extraction prompt builder;
 - provider-backed extraction adapter boundary;
 - Xiaomi MiMo `mimo-v2.5-pro` OpenAI-compatible provider adapter;
+- DeepSeek `deepseek-v4-pro` OpenAI-compatible provider adapter;
 - CLI `extract` command for provider-backed validated ABox JSON;
 - relation endpoint validation;
 - deterministic Turtle serialization;
@@ -355,23 +372,25 @@ Partially implemented:
 
 Next:
 
-- concrete OpenAI, Anthropic, or local-model SDK integration;
-- provider retry semantics beyond the current Xiaomi MiMo HTTP boundary.
+- concrete direct OpenAI/Anthropic SDK integration if non-OpenAI-compatible features are needed;
+- provider retry/backoff semantics beyond the current OpenAI-compatible HTTP boundary.
 
 ### Phase 3: Validation and repair
 
-Partially implemented:
+Implemented:
 
 - pySHACL validation helper;
 - structured violation parser;
 - bounded self-repair controller with fake repairer tests;
+- LLM Turtle repairer that builds prompts from structured SHACL diagnostics;
+- `repair-turtle` CLI command with provider-backed revalidation loop;
 - repair failure taxonomy;
 - valid and invalid graph tests.
 
 Next:
 
-- production repairer integration;
-- richer repair policy selection.
+- richer repair policy selection;
+- OWL inconsistency diagnostics converted into repair prompts.
 
 ### Phase 4: Reasoning and evaluation
 
@@ -412,11 +431,11 @@ Some of these documents are still design drafts and may describe planned feature
 
 ## Current limitations
 
-- Xiaomi MiMo `mimo-v2.5-pro` is the first provider-backed extraction integration; OpenAI, Anthropic, and local-model adapters are not implemented yet.
-- No production repairer implementation yet.
+- Xiaomi MiMo and DeepSeek are OpenAI-compatible provider integrations; real production behavior still depends on valid external API credentials and endpoint availability.
+- Provider retry/backoff is not implemented yet.
 - OWL reasoning requires optional `.[owl]` dependencies and a Java runtime; the base install only reports availability/unavailability and does not force Java into CI.
 - No graph database connector yet.
-- CLI coverage includes schema compilation, Turtle validation, optional OWL availability/consistency checks, and Xiaomi MiMo-backed extraction; repair CLI remains planned.
-- The current ontology fixture is a small company-access example, not a general domain model.
+- CLI coverage includes schema compilation, Turtle validation, provider-backed extraction, provider-backed Turtle repair, and optional OWL availability/consistency checks.
+- Pydantic extraction models currently cover the CompanyAccess MVP subset; the production LinkML schema is larger than the extraction payload contract.
 
 These limits are intentional. The first goal is a reproducible, testable semantic validation core.

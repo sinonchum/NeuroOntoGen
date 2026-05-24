@@ -11,7 +11,24 @@ imports:
   - linkml:types
 
 classes:
+  CompanyEntity:
+    description: "Abstract root for company ontology individuals"
+    abstract: true
+    attributes:
+      entityId:
+        range: string
+        required: true
+  Person:
+    is_a: CompanyEntity
+    description: "A human actor in the corporation or its extended workforce"
+    attributes:
+      displayName:
+        range: string
+      memberOf:
+        range: Department
+        required: true
   Employee:
+    is_a: Person
     description: "An active staff member of the corporation"
     attributes:
       empId:
@@ -20,10 +37,36 @@ classes:
       hasAccessLevel:
         range: integer
         required: true
+      manages:
+        range: Department
+        multivalued: true
       operates:
         range: SecureAsset
         multivalued: true
+  Contractor:
+    is_a: Person
+    description: "A non-employee actor with bounded access"
+    attributes:
+      contractorId:
+        range: string
+        required: true
+      accessExpiresOn:
+        range: date
+      operates:
+        range: SecureAsset
+        multivalued: true
+  Department:
+    is_a: CompanyEntity
+    description: "Organizational unit responsible for people and assets"
+    attributes:
+      deptId:
+        range: string
+        required: true
+      name:
+        range: string
+        required: true
   SecureAsset:
+    is_a: CompanyEntity
     description: "A digital or physical asset requiring clearance"
     attributes:
       assetId:
@@ -32,9 +75,98 @@ classes:
       requiredClearance:
         range: integer
         required: true
+      assignedPolicy:
+        range: AccessPolicy
+        required: true
+      managedBy:
+        range: Employee
+        required: true
+  DigitalAsset:
+    is_a: SecureAsset
+    description: "A logical or networked asset such as an application, VPN, or database"
+    attributes:
+      networkZone:
+        range: string
+  PhysicalAsset:
+    is_a: SecureAsset
+    description: "A physical restricted asset such as a lab, vault, or device"
+    attributes:
+      siteCode:
+        range: string
+  AccessPolicy:
+    is_a: CompanyEntity
+    description: "A policy controlling access to secure assets"
+    attributes:
+      policyId:
+        range: string
+        required: true
+      minimumClearance:
+        range: integer
+        required: true
+      ownerDepartment:
+        range: Department
+        required: true
 
 slots:
-  operates:
+  entityId:
+    range: string
+    required: true
+  displayName:
+    range: string
+  empId:
+    range: string
+    required: true
+  contractorId:
+    range: string
+    required: true
+  accessExpiresOn:
+    range: date
+  hasAccessLevel:
+    range: integer
+    required: true
+  deptId:
+    range: string
+    required: true
+  name:
+    range: string
+    required: true
+  assetId:
+    range: string
+    required: true
+  requiredClearance:
+    range: integer
+    required: true
+  policyId:
+    range: string
+    required: true
+  minimumClearance:
+    range: integer
+    required: true
+  networkZone:
+    range: string
+  siteCode:
+    range: string
+  memberOf:
+    domain: Person
+    range: Department
+    required: true
+  manages:
     domain: Employee
+    range: Department
+    multivalued: true
+  operates:
+    domain: Person
     range: SecureAsset
     multivalued: true
+  assignedPolicy:
+    domain: SecureAsset
+    range: AccessPolicy
+    required: true
+  managedBy:
+    domain: SecureAsset
+    range: Employee
+    required: true
+  ownerDepartment:
+    domain: AccessPolicy
+    range: Department
+    required: true

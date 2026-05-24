@@ -1,4 +1,4 @@
-"""Xiaomi MiMo OpenAI-compatible provider adapter."""
+"""DeepSeek OpenAI-compatible provider adapter."""
 
 from __future__ import annotations
 
@@ -8,13 +8,13 @@ from neuro_onto_gen.providers.openai_compatible import OpenAICompatibleProvider,
 
 
 @dataclass(frozen=True)
-class XiaomiMiMoProvider(OpenAICompatibleProvider):
-    """OpenAI-compatible chat-completions adapter for Xiaomi MiMo."""
+class DeepSeekProvider(OpenAICompatibleProvider):
+    """OpenAI-compatible chat-completions adapter for DeepSeek."""
 
     api_key: str
-    base_url: str = "https://token-plan-cn.xiaomimimo.com/v1"
-    model: str = "mimo-v2.5-pro"
-    provider_name: str = "xiaomi-mimo"
+    base_url: str = "https://api.deepseek.com/v1"
+    model: str = "deepseek-v4-pro"
+    provider_name: str = "deepseek"
     timeout: float = 60.0
     temperature: float = 0
     system_prompt: str = (
@@ -24,14 +24,14 @@ class XiaomiMiMoProvider(OpenAICompatibleProvider):
     post_json: PostJson = OpenAICompatibleProvider.__dataclass_fields__["post_json"].default
 
     @classmethod
-    def from_env(cls) -> "XiaomiMiMoProvider":
-        """Build a provider from ``XIAOMI_*`` environment variables."""
+    def from_env(cls) -> "DeepSeekProvider":
+        """Build a provider from ``DEEPSEEK_*`` environment variables."""
         provider = OpenAICompatibleProvider.from_env_vars(
-            provider_name="xiaomi-mimo",
-            api_key_env="XIAOMI_API_KEY",
-            base_url_env="XIAOMI_BASE_URL",
-            model_env="XIAOMI_MODEL",
-            timeout_env="XIAOMI_TIMEOUT",
+            provider_name="deepseek",
+            api_key_env="DEEPSEEK_API_KEY",
+            base_url_env="DEEPSEEK_BASE_URL",
+            model_env="DEEPSEEK_MODEL",
+            timeout_env="DEEPSEEK_TIMEOUT",
             default_base_url=cls.base_url,
             default_model=cls.model,
         )

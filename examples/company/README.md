@@ -1,6 +1,6 @@
 # Company example
 
-This directory contains minimal Turtle data graphs for the built-in company-access ontology fixture.
+This directory contains Turtle data graphs for the built-in company-access ontology. `valid_abox.ttl` exercises the production-scale schema, while `invalid_abox.ttl` intentionally omits required secure-asset fields for SHACL diagnostics.
 
 ## Compile the schema
 

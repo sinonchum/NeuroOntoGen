@@ -9,8 +9,10 @@ from pydantic import ValidationError
 
 from neuro_onto_gen.core.extraction import ExtractorProtocol, PromptedExtractionAdapter
 from neuro_onto_gen.core.owl_reasoner import OwlReasonerUnavailable, reason_owl_turtle
+from neuro_onto_gen.core.repair import LlmTurtleRepairer, RepairController, RepairFailure
 from neuro_onto_gen.core.validation import parse_shacl_violations, validate_abox_turtle
 from neuro_onto_gen.providers import (
+    DeepSeekProvider,
     ProviderConfigurationError,
     ProviderResponseError,
     XiaomiMiMoProvider,
@@ -25,7 +27,19 @@ def build_extraction_adapter(provider_name: str) -> ExtractorProtocol:
     normalized = provider_name.strip().lower()
     if normalized in {"xiaomi", "xiaomi-mimo", "mimo"}:
         return PromptedExtractionAdapter(provider=XiaomiMiMoProvider.from_env())
+    if normalized in {"deepseek", "deepseek-v4-pro"}:
+        return PromptedExtractionAdapter(provider=DeepSeekProvider.from_env())
     raise ProviderConfigurationError(f"unsupported extraction provider: {provider_name}")
+
+
+def build_completion_provider(provider_name: str):
+    """Build a raw completion provider for production repair/extraction commands."""
+    normalized = provider_name.strip().lower()
+    if normalized in {"xiaomi", "xiaomi-mimo", "mimo"}:
+        return XiaomiMiMoProvider.from_env()
+    if normalized in {"deepseek", "deepseek-v4-pro"}:
+        return DeepSeekProvider.from_env()
+    raise ProviderConfigurationError(f"unsupported completion provider: {provider_name}")
 
 
 @app.callback()
@@ -67,6 +81,43 @@ def validate_turtle_command(
         typer.echo(f"  severity: {violation.severity}")
         typer.echo(f"  message: {violation.message}")
     raise typer.Exit(code=1)
+
+
+@app.command("repair-turtle")
+def repair_turtle_command(
+    turtle_path: Path = typer.Argument(..., help="Path to the RDF/Turtle data graph to repair."),
+    shacl_path: Path = typer.Argument(..., help="Path to the SHACL shapes graph."),
+    provider: str = typer.Option(
+        "deepseek",
+        "--provider",
+        help="Completion provider name. Supported: xiaomi-mimo, deepseek.",
+    ),
+    max_attempts: int = typer.Option(2, "--max-attempts", help="Maximum repair attempts."),
+) -> None:
+    """Repair a non-conforming Turtle graph using structured SHACL violations and an LLM."""
+    try:
+        completion_provider = build_completion_provider(provider)
+        repairer = LlmTurtleRepairer(provider=completion_provider)
+        controller = RepairController(
+            shacl_path=shacl_path,
+            repairer=repairer,
+            max_attempts=max_attempts,
+        )
+        result = controller.repair_until_valid(turtle_path.read_text(encoding="utf-8"))
+    except ProviderConfigurationError as exc:
+        typer.echo(f"provider_config_error: {exc}")
+        raise typer.Exit(code=2) from exc
+    except ProviderResponseError as exc:
+        typer.echo(f"provider_response_error: {exc}")
+        raise typer.Exit(code=3) from exc
+    except RepairFailure as exc:
+        typer.echo(f"repair_failed: {exc.result.failure_reason}")
+        if exc.result.error_message:
+            typer.echo(f"error_message: {exc.result.error_message}")
+        typer.echo(f"attempts: {len(exc.result.attempts)}")
+        raise typer.Exit(code=5) from exc
+
+    typer.echo(result.final_turtle)
 
 
 @app.command("extract")

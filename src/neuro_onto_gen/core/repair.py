@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -13,6 +14,70 @@ from neuro_onto_gen.core.validation import (
     parse_shacl_violations,
     validate_abox_turtle,
 )
+
+
+@runtime_checkable
+class RepairCompletionProviderProtocol(Protocol):
+    """Protocol for LLM clients used by production repairers."""
+
+    def complete(self, prompt: str) -> str:
+        """Return repaired Turtle text for a rendered repair prompt."""
+        ...
+
+
+@dataclass(frozen=True)
+class LlmTurtleRepairer:
+    """Production repairer that asks an LLM to fix Turtle from SHACL diagnostics."""
+
+    provider: RepairCompletionProviderProtocol
+    ontology_name: str = "CompanyAccess"
+
+    def repair(self, turtle: str, violations: list[ShaclViolation], attempt_number: int) -> str:
+        """Render a repair prompt, call the provider, and normalize fenced output."""
+        prompt = self._build_prompt(turtle, violations, attempt_number)
+        return _strip_markdown_turtle_fence(self.provider.complete(prompt))
+
+    def _build_prompt(
+        self,
+        turtle: str,
+        violations: list[ShaclViolation],
+        attempt_number: int,
+    ) -> str:
+        violation_lines = []
+        for index, violation in enumerate(violations, start=1):
+            fields = [
+                f"focus_node={violation.focus_node}",
+                f"result_path={violation.result_path or '<none>'}",
+                f"source_constraint_component={violation.source_constraint_component}",
+                f"severity={violation.severity}",
+                f"message={violation.message}",
+            ]
+            violation_lines.append(f"{index}. " + "; ".join(fields))
+        rendered_violations = "\n".join(violation_lines) if violation_lines else "No structured violations supplied."
+        return (
+            "# NeuroOntoGen Turtle Repair Prompt\n"
+            f"Ontology: {self.ontology_name}\n"
+            f"Attempt: {attempt_number}\n\n"
+            "## Task\n\n"
+            "Repair the RDF/Turtle data graph so it satisfies the SHACL diagnostics. "
+            "Preserve supported facts and do not invent unrelated entities. "
+            "Return only repaired Turtle, with no Markdown fence or commentary.\n\n"
+            "## Current Turtle\n\n"
+            f"{turtle.strip()}\n\n"
+            "## SHACL Violations\n\n"
+            f"{rendered_violations}\n\n"
+            "## Output Contract\n\n"
+            "Return only repaired Turtle."
+        )
+
+
+def _strip_markdown_turtle_fence(text: str) -> str:
+    """Strip a single Markdown code fence when providers ignore the prompt contract."""
+    stripped = text.strip()
+    match = re.fullmatch(r"```(?:turtle|ttl)?\s*\n(?P<body>.*?)\n?```", stripped, flags=re.DOTALL)
+    if match is None:
+        return stripped
+    return match.group("body").strip()
 
 
 @runtime_checkable

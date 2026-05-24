@@ -1,11 +1,27 @@
 @prefix ex: <http://example.org/company/> .
 
+<http://example.org/company/department/SOC> a ex:Department ;
+    ex:entityId "DEPT-SOC" ;
+    ex:deptId "SOC" ;
+    ex:name "Security Operations" .
+
 <http://example.org/company/employee/E-001> a ex:Employee ;
+    ex:entityId "E-001" ;
     ex:empId "E-001" ;
-    ex:hasAccessLevel 3 .
+    ex:hasAccessLevel 3 ;
+    ex:memberOf <http://example.org/company/department/SOC> ;
+    ex:operates <http://example.org/company/asset/VPN> .
 
-<http://example.org/company/asset/VPN> a ex:SecureAsset ;
+<http://example.org/company/policy/POL-VPN> a ex:AccessPolicy ;
+    ex:entityId "POL-VPN" ;
+    ex:policyId "POL-VPN" ;
+    ex:minimumClearance 2 ;
+    ex:ownerDepartment <http://example.org/company/department/SOC> .
+
+<http://example.org/company/asset/VPN> a ex:DigitalAsset, ex:SecureAsset ;
+    ex:entityId "VPN" ;
     ex:assetId "VPN" ;
-    ex:requiredClearance 2 .
-
-<http://example.org/company/employee/E-001> ex:operates <http://example.org/company/asset/VPN> .
+    ex:requiredClearance 2 ;
+    ex:assignedPolicy <http://example.org/company/policy/POL-VPN> ;
+    ex:managedBy <http://example.org/company/employee/E-001> ;
+    ex:networkZone "restricted" .
