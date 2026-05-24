@@ -19,7 +19,7 @@ The command writes a JSON summary to stdout with:
 - case count;
 - SHACL conformance rate;
 - placeholder repair success rate;
-- placeholder prompt stability score;
+- prompt stability score plus graph-level diagnostics for deterministic Turtle prompt variants;
 - per-case SHACL reports.
 
 ## Markdown summary
@@ -31,4 +31,4 @@ python benchmarks/run_benchmark.py \
   --output-markdown build/benchmark-summary.md
 ```
 
-The benchmark skeleton is not a scientific benchmark yet. It is a reproducible smoke entrypoint for the future evaluation layer, where exact match, fuzzy token F1, SHACL conformance, repair success, and prompt stability metrics will be applied to larger datasets.
+The benchmark skeleton is not a scientific benchmark yet. It is a reproducible smoke entrypoint for the future evaluation layer, where exact match, fuzzy token F1, SHACL conformance, repair success, and RDF graph stability metrics can be applied to larger datasets.

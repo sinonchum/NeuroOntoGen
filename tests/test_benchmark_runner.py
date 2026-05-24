@@ -24,6 +24,9 @@ def test_quick_benchmark_outputs_json_summary() -> None:
     assert summary["mode"] == "quick"
     assert summary["cases_total"] == 2
     assert summary["shacl_conformance_rate"] == 0.5
+    assert summary["prompt_stability_score"] == 1.0
+    assert summary["prompt_stability"]["variant_count"] == 2
+    assert summary["prompt_stability"]["exact_graph_stability"] == 1.0
     assert summary["cases"]["valid_abox.ttl"]["conforms"] is True
     assert summary["cases"]["invalid_abox.ttl"]["conforms"] is False
     assert "requiredClearance" in summary["cases"]["invalid_abox.ttl"]["report_text"]
@@ -51,4 +54,6 @@ def test_quick_benchmark_can_write_markdown_summary(tmp_path: Path) -> None:
     markdown = output_markdown.read_text(encoding="utf-8")
     assert "# NeuroOntoGen benchmark summary" in markdown
     assert "SHACL conformance rate: 0.5" in markdown
+    assert "Prompt stability score: 1.0" in markdown
+    assert "Prompt variants: 2" in markdown
     assert "invalid_abox.ttl" in markdown

@@ -11,6 +11,7 @@ from typing import Any
 
 from neuro_onto_gen.core.validation import validate_abox_turtle
 from neuro_onto_gen.evaluation.metrics import shacl_conformance_rate
+from neuro_onto_gen.evaluation.prompt_stability import PromptVariantOutput, evaluate_prompt_stability
 from neuro_onto_gen.schema.compiler import compile_schema
 
 
@@ -40,13 +41,27 @@ def run_quick_benchmark(dataset: Path) -> dict[str, Any]:
                 "report_text": report.report_text,
             }
 
+        prompt_stability = evaluate_prompt_stability(
+            [
+                PromptVariantOutput(
+                    prompt_id="direct",
+                    output_turtle=(dataset / "valid_abox.ttl").read_text(encoding="utf-8"),
+                ),
+                PromptVariantOutput(
+                    prompt_id="schema_first",
+                    output_turtle=(dataset / "valid_abox.ttl").read_text(encoding="utf-8"),
+                ),
+            ]
+        )
+
     return {
         "dataset": str(dataset),
         "mode": "quick",
         "cases_total": len(cases),
         "shacl_conformance_rate": shacl_conformance_rate(conformance_results),
         "repair_success_rate": 0.0,
-        "prompt_stability_score": 0.0,
+        "prompt_stability_score": prompt_stability.exact_graph_stability,
+        "prompt_stability": prompt_stability.to_json_dict(),
         "cases": cases,
     }
 
@@ -62,6 +77,8 @@ def render_markdown_summary(summary: dict[str, Any]) -> str:
         f"SHACL conformance rate: {summary['shacl_conformance_rate']}",
         f"Repair success rate: {summary['repair_success_rate']}",
         f"Prompt stability score: {summary['prompt_stability_score']}",
+        f"Prompt variants: {summary['prompt_stability']['variant_count']}",
+        f"Prompt exact graph stability: {summary['prompt_stability']['exact_graph_stability']}",
         "",
         "## Cases",
     ]

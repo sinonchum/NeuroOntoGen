@@ -4,7 +4,7 @@ NeuroOntoGen is an SDK-first research project for building ontology-generation p
 
 The project combines flexible extraction with symbolic validation. LLMs can propose ABox facts, but LinkML, Pydantic, RDF, and SHACL define the contract that decides whether those facts are usable.
 
-> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, provider-neutral extraction adapter boundaries, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded repair orchestration, optional OWL reasoner availability/consistency checks, and smoke-testable CLI commands. Production LLM SDK integrations, production repairers, clustering discovery, and MCP adapters are planned but not yet production features.
+> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, provider-neutral extraction adapter boundaries, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded repair orchestration, optional OWL reasoner availability/consistency checks, cross-prompt RDF graph stability evaluation, and smoke-testable CLI commands. Production LLM SDK integrations, production repairers, clustering discovery, and MCP adapters are planned but not yet production features.
 
 ## Why this exists
 
@@ -63,6 +63,7 @@ This is intentionally small. It gives the project a reproducible semantic pipeli
 | Production LLM SDK integration | Planned | Concrete OpenAI, Anthropic, or local-model adapters are intentionally deferred. |
 | Repair failure taxonomy | Implemented | Repair failures carry machine-readable reasons and error messages. |
 | OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing. |
+| Prompt stability evaluation | Implemented | Compares parseable Turtle outputs across prompt variants using canonical RDF triples, consensus graph coverage, and per-variant precision/recall/F1 diagnostics. |
 | Clustering discovery | Planned | Intended for schema discovery, not direct production schema writes. |
 
 ## Architecture
@@ -89,6 +90,7 @@ graph TB
     R -->|fail| REP[Bounded Repair Loop]
     REP --> RDF
     OUT --> OR[Optional OWL Reasoner]
+    OUT --> ST[Prompt Stability Evaluator]
 ```
 
 The current code implements the solid arrows. Dotted arrows are planned MVP extensions.
@@ -211,7 +213,7 @@ java -version
 python benchmarks/run_benchmark.py --dataset examples/company --quick
 ```
 
-The quick benchmark emits a JSON summary with case-level SHACL reports, SHACL conformance rate, and placeholder repair/prompt-stability metrics for future larger datasets.
+The quick benchmark emits a JSON summary with case-level SHACL reports, SHACL conformance rate, and deterministic prompt-stability diagnostics over Turtle prompt-variant outputs. Repair metrics remain placeholders until production repairers are added.
 
 ### Execute the end-to-end notebook
 

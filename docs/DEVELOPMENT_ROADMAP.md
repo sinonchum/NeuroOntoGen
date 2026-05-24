@@ -578,6 +578,8 @@ Expected:
 
 **Objective:** 量化 prompt 表观变化对三元组输出的影响。
 
+**Status:** Implemented deterministic RDF graph stability evaluator. It canonicalizes Turtle outputs into triple sets, ignores serialization order, records parse failures, computes exact graph stability, stable triple ratio, consensus graph coverage, unstable triples, and per-prompt precision/recall/F1 against the canonical prompt output. The quick benchmark now reports these diagnostics for smoke prompt variants.
+
 **Files:**
 
 - Create: `src/neuro_onto_gen/evaluation/prompt_stability.py`
