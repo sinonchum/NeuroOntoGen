@@ -20,6 +20,7 @@ coverage/
 dist/
 build/
 *.egg-info/
+uv.lock
 
 # Node
 node_modules/
