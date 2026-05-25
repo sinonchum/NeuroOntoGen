@@ -61,7 +61,8 @@ The typed ABox payload currently covers the extraction MVP subset (`Employee`, `
 | Xiaomi MiMo provider integration | Parked | Adapter remains in the codebase, but default extraction/repair flows are now DeepSeek-first while Xiaomi credentials are unavailable. |
 | DeepSeek provider integration | Implemented | OpenAI-compatible `deepseek-v4-pro` adapter using `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, and `DEEPSEEK_MODEL`; default for extraction and usable by repair. |
 | Generic OpenAI-compatible relay integration | Implemented | `--provider openai-compatible` uses `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_TIMEOUT`, `OPENAI_MAX_RETRIES`, and `OPENAI_RETRY_DELAY` for OpenAI-style relay endpoints. |
-| Production LLM SDK integration | Partially implemented | OpenAI-compatible provider base supports DeepSeek, generic relay endpoints, retryable HTTP/network failures, provider request IDs, `Retry-After` backoff hints, plus parked Xiaomi MiMo; direct Anthropic SDK adapters remain planned. |
+| Anthropic provider integration | Implemented | `--provider anthropic` / `--provider claude` uses `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL`, `ANTHROPIC_TIMEOUT`, `ANTHROPIC_MAX_RETRIES`, and `ANTHROPIC_RETRY_DELAY` through the Messages API without adding a mandatory SDK dependency. |
+| Production LLM SDK integration | Partially implemented | OpenAI-compatible provider base supports DeepSeek, generic relay endpoints, retryable HTTP/network failures, provider request IDs, `Retry-After` backoff hints, plus parked Xiaomi MiMo; Anthropic Messages API is wired through the same provider-neutral boundary. |
 | Repair failure taxonomy | Implemented | Repair failures carry machine-readable reasons and error messages. |
 | OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing; `repair-owl` wraps OWL diagnostics, LLM repair, and bounded re-reasoning. |
 | Prompt stability evaluation | Implemented | Compares parseable Turtle outputs across prompt variants using canonical RDF triples, consensus graph coverage, and per-variant precision/recall/F1 diagnostics. |
@@ -215,9 +216,18 @@ export OPENAI_MAX_RETRIES="2"
 neuro-onto-gen extract "Employee E-001 has access level 3 and operates secure asset VPN requiring clearance 2." --provider openai-compatible
 ```
 
+Or use Anthropic's Messages API through the same provider-neutral boundary:
+
+```bash
+export ANTHROPIC_API_KEY="..."
+export ANTHROPIC_MODEL="claude-3-5-haiku-latest"
+export ANTHROPIC_MAX_RETRIES="2"
+neuro-onto-gen extract "Employee E-001 has access level 3 and operates secure asset VPN requiring clearance 2." --provider anthropic
+```
+
 Xiaomi MiMo is temporarily parked because the available credential currently returns `401 invalid_key`; its adapter remains available for explicit experiments with a valid key via `--provider xiaomi-mimo`.
 
-The `extract` command renders the schema-constrained CompanyAccess prompt, calls the selected OpenAI-compatible chat-completions endpoint, and prints only Pydantic-validated ABox JSON. Missing provider configuration exits `2`; provider HTTP/shape errors exit `3`; schema validation failures exit `4`.
+The `extract` command renders the schema-constrained CompanyAccess prompt, calls the selected provider endpoint, and prints only Pydantic-validated ABox JSON. Missing provider configuration exits `2`; provider HTTP/shape errors exit `3`; schema validation failures exit `4`.
 
 Repair a non-conforming Turtle graph with the same provider boundary:
 
@@ -447,7 +457,7 @@ Partially implemented:
 
 Next:
 
-- concrete direct OpenAI/Anthropic SDK integration if non-OpenAI-compatible features are needed;
+- concrete local-model adapter for offline/private deployments;
 - provider-specific quota telemetry beyond standard request ID and `Retry-After` diagnostics.
 
 ### Phase 3: Validation and repair
