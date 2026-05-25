@@ -4,13 +4,24 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Sequence
+from pathlib import Path
+from typing import Any, Mapping, Sequence
+
+import yaml
 
 from pydantic import BaseModel
 
 from neuro_onto_gen.core.models import ABoxPayload
 
 PROMPT_VERSION = "nog.prompt.v1"
+
+
+@dataclass(frozen=True)
+class PromptConstraints:
+    """Schema-derived entity and relation vocabulary for prompt construction."""
+
+    allowed_entity_types: tuple[str, ...]
+    allowed_relations: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -124,23 +135,15 @@ def build_extraction_prompt(
     )
 
 
-def build_company_access_prompt(source_text: str) -> ExtractionPrompt:
+def build_company_access_prompt(source_text: str, *, schema_path: Path | None = None) -> ExtractionPrompt:
     """Build the default CompanyAccess ABox extraction prompt."""
+    constraints = derive_prompt_constraints_from_linkml(schema_path or _default_company_schema_path())
     return build_extraction_prompt(
         ontology_name="CompanyAccess",
         source_text=source_text,
         output_model=ABoxPayload,
-        allowed_entity_types=(
-            "Person",
-            "Employee",
-            "Contractor",
-            "Department",
-            "SecureAsset",
-            "DigitalAsset",
-            "PhysicalAsset",
-            "AccessPolicy",
-        ),
-        allowed_relations=("memberOf", "manages", "operates", "assignedPolicy", "managedBy", "ownerDepartment"),
+        allowed_entity_types=constraints.allowed_entity_types,
+        allowed_relations=constraints.allowed_relations,
         normalization_rules=(
             "Return JSON only, with no Markdown fence or commentary.",
             "Use stable identifiers: person_id, emp_id, contractor_id, dept_id, asset_id, and policy_id.",
@@ -149,6 +152,58 @@ def build_company_access_prompt(source_text: str) -> ExtractionPrompt:
             "Omit unsupported facts instead of guessing missing values.",
         ),
     )
+
+
+def derive_prompt_constraints_from_linkml(schema_path: Path) -> PromptConstraints:
+    """Derive prompt entity/relation vocabulary from a LinkML YAML schema.
+
+    Entity types are non-abstract classes in schema order. Relations are slots whose
+    domain and range both point to non-abstract classes, which excludes literal data
+    properties such as ``entityId`` and ``hasAccessLevel``.
+    """
+    schema = _load_linkml_yaml(schema_path)
+    classes = _as_mapping(schema.get("classes"), "classes")
+    slots = _as_mapping(schema.get("slots"), "slots")
+
+    entity_types = tuple(
+        class_name
+        for class_name, class_spec in classes.items()
+        if not _as_mapping(class_spec, f"classes.{class_name}").get("abstract", False)
+    )
+    entity_type_set = set(entity_types)
+    relations = tuple(
+        slot_name
+        for slot_name, slot_spec in slots.items()
+        if _is_object_relation(slot_spec, entity_type_set)
+    )
+    if not entity_types:
+        raise ValueError(f"LinkML schema has no concrete classes: {schema_path}")
+    if not relations:
+        raise ValueError(f"LinkML schema has no object-property relations: {schema_path}")
+    return PromptConstraints(allowed_entity_types=entity_types, allowed_relations=relations)
+
+
+def _default_company_schema_path() -> Path:
+    return Path(__file__).resolve().parents[3] / "schemas" / "company_schema.yaml"
+
+
+def _load_linkml_yaml(schema_path: Path) -> Mapping[str, Any]:
+    with schema_path.open(encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle)
+    return _as_mapping(payload, str(schema_path))
+
+
+def _as_mapping(value: object, label: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"LinkML {label} must be a mapping")
+    return value
+
+
+def _is_object_relation(slot_spec: object, entity_type_set: set[str]) -> bool:
+    spec = _as_mapping(slot_spec, "slot")
+    domain = spec.get("domain")
+    range_name = spec.get("range")
+    return isinstance(domain, str) and isinstance(range_name, str) and range_name in entity_type_set
 
 
 def _render_output_schema(output_model: type[BaseModel]) -> str:

@@ -56,7 +56,7 @@ The typed ABox payload covers the extraction MVP subset and the current producti
 | Benchmark skeleton | Implemented | Quick benchmark emits JSON and optional Markdown summaries for the company examples. |
 | End-to-end notebook | Implemented | Executable reviewer/demo notebook covers schema compilation, ABox serialization, SHACL validation, violation inspection, and bounded mock repair. |
 | Raw extraction normalization | Implemented | JSON-like provider output can be parsed into a validated `ABoxPayload`. |
-| Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections. |
+| Schema-constrained prompt builder | Implemented | Versioned prompt artifacts expose role, context, normalization, ontology specification, source text, and output schema sections; the default CompanyAccess prompt derives allowed entity types and object-property relations from `schemas/company_schema.yaml` instead of duplicating the vocabulary by hand. |
 | Provider-backed extraction boundary | Implemented | A protocol-based adapter builds prompts, calls a provider client, and validates provider output. |
 | Xiaomi MiMo provider integration | Parked | Adapter remains in the codebase, but default extraction/repair flows are now DeepSeek-first while Xiaomi credentials are unavailable. |
 | DeepSeek provider integration | Implemented | OpenAI-compatible `deepseek-v4-pro` adapter using `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, and `DEEPSEEK_MODEL`; default for extraction and usable by repair. |
@@ -545,6 +545,6 @@ Some of these documents are still design drafts and may describe planned feature
 - Remote graph support is read/query-only; SPARQL Update writes, authentication, pagination, retry/backoff, and vendor-specific GraphDB/Fuseki/Neptune behavior still need explicit safety policy and connector tests.
 - CLI coverage includes schema compilation, Turtle validation, provider-backed extraction, provider-backed Turtle repair, optional OWL availability/consistency checks, and OWL repair orchestration.
 - LLM cluster naming is provider-backed but advisory only; generated class labels and LinkML drafts still require human ontology review.
-- Pydantic extraction models currently cover the CompanyAccess MVP subset; the production LinkML schema is larger than the extraction payload contract.
+- Prompt constraints for the default CompanyAccess extractor are schema-driven for entity classes and object-property relations; remaining schema drift risk is in hand-maintained Pydantic field aliases/normalization guidance until a fuller LinkML→Pydantic/prompt mapping exists.
 
 These limits are intentional. The first goal is a reproducible, testable semantic validation core.

@@ -42,6 +42,7 @@
 | P1 | Graph repository CLI smoke path | `validate-turtle --store --graph-name ...` now loads only SHACL-conforming graphs into the safe local RDFLib in-memory repository, prints backend/network/triple-count metadata, and avoids remote writes. Remote SPARQL remains read/query-only until an explicit update safety policy exists. |
 | P1 | clustering 生产路径 | Still pending: SpaCy + sentence-transformers + scikit-learn AP path beyond deterministic fallback. |
 | P1 | OWL 推理到修复闭环 | Still pending: map real OWL inconsistency diagnostics into repair prompts. |
+| P2 | Schema-driven prompt vocabulary | Default CompanyAccess prompt now derives concrete entity classes and object-property relations from `schemas/company_schema.yaml`, excluding abstract classes and literal data slots. Still pending: fully generated Pydantic models/field aliases and richer prompt guidance from LinkML slot metadata. |
 | P2 | 真实数据集评估 | Still pending: FewRel/WebNLG/custom enterprise security benchmark cases. |
 | P2 | 生产基础设施 | Still pending: Neo4j connector, audit log, MCP server. |
 

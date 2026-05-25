@@ -1,8 +1,11 @@
+from pathlib import Path
+
 from neuro_onto_gen.core.prompting import (
     ExtractionPrompt,
     PromptSection,
     build_company_access_prompt,
     build_extraction_prompt,
+    derive_prompt_constraints_from_linkml,
 )
 from neuro_onto_gen.core.models import ABoxPayload
 
@@ -59,6 +62,32 @@ def test_rendered_prompt_is_deterministic_and_schema_constrained():
     assert '"secure_assets"' in rendered_once
     assert '"relations"' in rendered_once
     assert "Do not invent entity types, relation predicates, or fields" in rendered_once
+
+
+def test_prompt_constraints_are_derived_from_linkml_company_schema() -> None:
+    constraints = derive_prompt_constraints_from_linkml(Path("schemas/company_schema.yaml"))
+
+    assert constraints.allowed_entity_types == (
+        "Person",
+        "Employee",
+        "Contractor",
+        "Department",
+        "SecureAsset",
+        "DigitalAsset",
+        "PhysicalAsset",
+        "AccessPolicy",
+    )
+    assert "CompanyEntity" not in constraints.allowed_entity_types
+    assert constraints.allowed_relations == (
+        "memberOf",
+        "manages",
+        "operates",
+        "assignedPolicy",
+        "managedBy",
+        "ownerDepartment",
+    )
+    assert "entityId" not in constraints.allowed_relations
+    assert "hasAccessLevel" not in constraints.allowed_relations
 
 
 def test_build_company_access_prompt_uses_project_default_contract():
