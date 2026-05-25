@@ -132,6 +132,34 @@ def _parse_retry_after(value: str | None) -> float | None:
     return max(0.0, seconds)
 
 
+def post_json_with_retries(
+    *,
+    post_json: PostJson,
+    endpoint: str,
+    headers: Mapping[str, str],
+    payload: Mapping[str, Any],
+    timeout: float,
+    max_retries: int,
+    retry_delay: float,
+    sleep: Sleep,
+) -> JsonMapping:
+    """POST JSON with provider-neutral retry/backoff behavior."""
+    attempts = max(0, max_retries) + 1
+    for attempt_index in range(attempts):
+        try:
+            return post_json(endpoint, headers, payload, timeout)
+        except ProviderResponseError as exc:
+            is_last_attempt = attempt_index >= attempts - 1
+            if is_last_attempt or not exc.retryable:
+                raise
+            delay = exc.retry_after_seconds
+            if delay is None:
+                delay = retry_delay
+            if delay > 0:
+                sleep(delay)
+    raise RuntimeError("unreachable provider retry state")
+
+
 @dataclass(frozen=True)
 class OpenAICompatibleProvider:
     """Provider-neutral OpenAI-compatible chat-completions adapter."""
@@ -214,20 +242,16 @@ class OpenAICompatibleProvider:
         headers: Mapping[str, str],
         payload: Mapping[str, Any],
     ) -> JsonMapping:
-        attempts = max(0, self.max_retries) + 1
-        for attempt_index in range(attempts):
-            try:
-                return self.post_json(endpoint, headers, payload, self.timeout)
-            except ProviderResponseError as exc:
-                is_last_attempt = attempt_index >= attempts - 1
-                if is_last_attempt or not exc.retryable:
-                    raise
-                retry_delay = exc.retry_after_seconds
-                if retry_delay is None:
-                    retry_delay = self.retry_delay
-                if retry_delay > 0:
-                    self.sleep(retry_delay)
-        raise RuntimeError("unreachable provider retry state")
+        return post_json_with_retries(
+            post_json=self.post_json,
+            endpoint=endpoint,
+            headers=headers,
+            payload=payload,
+            timeout=self.timeout,
+            max_retries=self.max_retries,
+            retry_delay=self.retry_delay,
+            sleep=self.sleep,
+        )
 
     @staticmethod
     def _extract_message_content(response: JsonMapping) -> str:

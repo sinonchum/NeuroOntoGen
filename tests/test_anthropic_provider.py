@@ -1,5 +1,6 @@
 from neuro_onto_gen.cli import build_completion_provider, build_extraction_adapter
 from neuro_onto_gen.providers import AnthropicProvider, ProviderConfigurationError, ProviderResponseError
+from neuro_onto_gen.providers.openai_compatible import post_json_with_retries
 
 
 def test_anthropic_provider_posts_messages_completion() -> None:
@@ -89,3 +90,29 @@ def test_anthropic_provider_can_be_built_for_completion_and_extraction(monkeypat
     assert isinstance(completion_provider, AnthropicProvider)
     assert completion_provider.provider_name == "anthropic"
     assert extraction_adapter.provider.provider_name == "anthropic"
+
+
+def test_shared_retry_helper_retries_anthropic_response_shape() -> None:
+    calls = []
+
+    def flaky_post_json(url, headers, payload, timeout):
+        calls.append((url, headers, payload, timeout))
+        if len(calls) == 1:
+            raise ProviderResponseError("rate limited", status_code=429, retryable=True, retry_after_seconds=0.5)
+        return {"content": [{"type": "text", "text": "{}"}]}
+
+    response = post_json_with_retries(
+        post_json=flaky_post_json,
+        endpoint="https://api.anthropic.example/v1/messages",
+        headers={"x-api-key": "test-key"},
+        payload={"model": "claude"},
+        timeout=9,
+        max_retries=1,
+        retry_delay=0,
+        sleep=lambda seconds: calls.append(("sleep", seconds)),
+    )
+
+    assert response == {"content": [{"type": "text", "text": "{}"}]}
+    assert calls[0][0] == "https://api.anthropic.example/v1/messages"
+    assert calls[1] == ("sleep", 0.5)
+    assert calls[2][0] == "https://api.anthropic.example/v1/messages"

@@ -35,7 +35,7 @@ The project now includes two CompanyAccess schema tracks:
 - `schemas/company_schema.yaml`: production-scale starter TBox with `CompanyEntity`, `Person`, `Employee`, `Contractor`, `Department`, `SecureAsset`, `DigitalAsset`, `PhysicalAsset`, and `AccessPolicy`, including inheritance, domain/range constraints, and required/cardinality constraints.
 - `tests/fixtures/company_schema.yaml`: intentionally minimal fixture used by deterministic unit tests and examples.
 
-The typed ABox payload currently covers the extraction MVP subset (`Employee`, `SecureAsset`, and `operates`) while the production LinkML schema exercises a more realistic KG shape.
+The typed ABox payload covers the extraction MVP subset and the current production schema classes (`Person`, `Employee`, `Contractor`, `Department`, `SecureAsset`, `DigitalAsset`, `PhysicalAsset`, and `AccessPolicy`) with schema-aligned object properties (`memberOf`, `manages`, `operates`, `assignedPolicy`, `managedBy`, and `ownerDepartment`).
 
 ## What is implemented now
 
@@ -44,8 +44,8 @@ The typed ABox payload currently covers the extraction MVP subset (`Employee`, `
 | Python package skeleton | Implemented | Standard `src/` layout with editable install support. |
 | LinkML schema fixture | Implemented | `schemas/company_schema.yaml` is a production-scale starter TBox; `tests/fixtures/company_schema.yaml` remains the minimal deterministic fixture. |
 | Schema compiler wrapper | Implemented | Generates JSON Schema, SHACL, and Turtle artifacts. |
-| Pydantic ABox models | Implemented | Validates employees, secure assets, and `operates` relations. |
-| RDF/Turtle serializer | Implemented | Converts typed ABox payloads into parseable Turtle. |
+| Pydantic ABox models | Implemented | Validates production-schema-aligned people, departments, policies, secure/digital/physical assets, and predicate-specific relation endpoints while preserving the original Employee/SecureAsset MVP path. |
+| RDF/Turtle serializer | Implemented | Converts typed ABox payloads into parseable Turtle, including extended CompanyOntology classes and object properties. |
 | SHACL validation loop | Implemented | Valid and invalid graphs are tested against generated SHACL. |
 | Structured SHACL violation parser | Implemented | Validation report graphs are parsed into repair-ready violation objects. |
 | Bounded self-repair controller | Implemented | Fake repairer tests cover success, already-valid passthrough, hard failure after retry limits, and repairer exceptions. |
@@ -63,7 +63,7 @@ The typed ABox payload currently covers the extraction MVP subset (`Employee`, `
 | Generic OpenAI-compatible relay integration | Implemented | `--provider openai-compatible` uses `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_TIMEOUT`, `OPENAI_MAX_RETRIES`, and `OPENAI_RETRY_DELAY` for OpenAI-style relay endpoints. |
 | Anthropic provider integration | Implemented | `--provider anthropic` / `--provider claude` uses `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL`, `ANTHROPIC_TIMEOUT`, `ANTHROPIC_MAX_RETRIES`, and `ANTHROPIC_RETRY_DELAY` through the Messages API without adding a mandatory SDK dependency. |
 | Local model provider integration | Implemented | `--provider local-model` / `--provider ollama` targets local OpenAI-compatible `/v1/chat/completions` servers such as Ollama, vLLM, llama.cpp server, or LM Studio via `LOCAL_MODEL_*`; API key is optional. |
-| Production LLM SDK integration | Partially implemented | OpenAI-compatible provider base supports DeepSeek, generic relay endpoints, retryable HTTP/network failures, provider request IDs, `Retry-After` backoff hints, plus parked Xiaomi MiMo; Anthropic Messages API and local model servers are wired through the same provider-neutral boundary. |
+| Production LLM SDK integration | Partially implemented | OpenAI-compatible provider base supports DeepSeek, generic relay endpoints, retryable HTTP/network failures, provider request IDs, `Retry-After` backoff hints, plus parked Xiaomi MiMo; Anthropic Messages API and local model servers are wired through the same provider-neutral boundary, and OpenAI-compatible/Anthropic retry behavior now reuses one shared helper. |
 | Repair failure taxonomy | Implemented | Repair failures carry machine-readable reasons and error messages. |
 | OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing; `repair-owl` wraps OWL diagnostics, LLM repair, and bounded re-reasoning. |
 | Prompt stability evaluation | Implemented | Compares parseable Turtle outputs across prompt variants using canonical RDF triples, consensus graph coverage, and per-variant precision/recall/F1 diagnostics. |

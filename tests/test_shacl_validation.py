@@ -2,6 +2,9 @@ from pathlib import Path
 
 from neuro_onto_gen.core.models import (
     ABoxPayload,
+    ExtractedAccessPolicy,
+    ExtractedDepartment,
+    ExtractedDigitalAsset,
     ExtractedEmployee,
     ExtractedRelation,
     ExtractedSecureAsset,
@@ -72,3 +75,34 @@ def test_conforming_report_has_no_structured_violations(tmp_path: Path) -> None:
     report = validate_abox_turtle(serialize_abox_to_turtle(payload), artifacts["shacl"])
 
     assert parse_shacl_violations(report) == []
+
+
+def test_extended_abox_payload_can_conform_to_production_company_schema(tmp_path: Path) -> None:
+    artifacts = compile_schema(Path("schemas/company_schema.yaml"), tmp_path)
+    payload = ABoxPayload(
+        departments=[ExtractedDepartment(dept_id="D-SEC", entity_id="D-SEC", name="Security")],
+        employees=[ExtractedEmployee(emp_id="E-001", entity_id="E-001", has_access_level=3, member_of_dept_id="D-SEC")],
+        access_policies=[
+            ExtractedAccessPolicy(
+                policy_id="P-VPN",
+                entity_id="P-VPN",
+                minimum_clearance=2,
+                owner_department_dept_id="D-SEC",
+            )
+        ],
+        digital_assets=[
+            ExtractedDigitalAsset(
+                asset_id="VPN",
+                entity_id="VPN",
+                required_clearance=2,
+                assigned_policy_id="P-VPN",
+                managed_by_emp_id="E-001",
+                network_zone="corp",
+            )
+        ],
+        relations=[ExtractedRelation(subject_emp_id="E-001", predicate="operates", object_asset_id="VPN")],
+    )
+
+    report = validate_abox_turtle(serialize_abox_to_turtle(payload), artifacts["shacl"])
+
+    assert report.conforms is True, report.report_text

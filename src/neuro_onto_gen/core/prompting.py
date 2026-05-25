@@ -130,13 +130,23 @@ def build_company_access_prompt(source_text: str) -> ExtractionPrompt:
         ontology_name="CompanyAccess",
         source_text=source_text,
         output_model=ABoxPayload,
-        allowed_entity_types=("Employee", "SecureAsset"),
-        allowed_relations=("operates",),
+        allowed_entity_types=(
+            "Person",
+            "Employee",
+            "Contractor",
+            "Department",
+            "SecureAsset",
+            "DigitalAsset",
+            "PhysicalAsset",
+            "AccessPolicy",
+        ),
+        allowed_relations=("memberOf", "manages", "operates", "assignedPolicy", "managedBy", "ownerDepartment"),
         normalization_rules=(
             "Return JSON only, with no Markdown fence or commentary.",
-            "Use employee identifiers for employees, such as emp_id.",
-            "Use asset identifiers for secure assets, such as asset_id.",
-            "Use has_access_level and required_clearance only when supported by text.",
+            "Use stable identifiers: person_id, emp_id, contractor_id, dept_id, asset_id, and policy_id.",
+            "Use snake_case JSON fields from the output schema, including member_of_dept_id, assigned_policy_id, managed_by_emp_id, and owner_department_dept_id.",
+            "Use relation endpoint fields that match the predicate, such as subject_emp_id/object_asset_id for operates or subject_asset_id/object_policy_id for assignedPolicy.",
+            "Omit unsupported facts instead of guessing missing values.",
         ),
     )
 

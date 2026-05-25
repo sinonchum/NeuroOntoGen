@@ -233,7 +233,7 @@ def extract_command(
         typer.echo(str(exc))
         raise typer.Exit(code=4) from exc
 
-    typer.echo(payload.model_dump_json(indent=2))
+    typer.echo(payload.model_dump_json(indent=2, exclude_unset=True))
 
 
 @app.command("reason-owl")

@@ -13,6 +13,7 @@ from neuro_onto_gen.providers.openai_compatible import (
     ProviderConfigurationError,
     ProviderResponseError,
     _default_post_json,
+    post_json_with_retries,
 )
 
 
@@ -78,20 +79,16 @@ class AnthropicProvider:
         headers: Mapping[str, str],
         payload: Mapping[str, Any],
     ) -> JsonMapping:
-        attempts = max(0, self.max_retries) + 1
-        for attempt_index in range(attempts):
-            try:
-                return self.post_json(endpoint, headers, payload, self.timeout)
-            except ProviderResponseError as exc:
-                is_last_attempt = attempt_index >= attempts - 1
-                if is_last_attempt or not exc.retryable:
-                    raise
-                retry_delay = exc.retry_after_seconds
-                if retry_delay is None:
-                    retry_delay = self.retry_delay
-                if retry_delay > 0:
-                    self.sleep(retry_delay)
-        raise RuntimeError("unreachable provider retry state")
+        return post_json_with_retries(
+            post_json=self.post_json,
+            endpoint=endpoint,
+            headers=headers,
+            payload=payload,
+            timeout=self.timeout,
+            max_retries=self.max_retries,
+            retry_delay=self.retry_delay,
+            sleep=self.sleep,
+        )
 
     @staticmethod
     def _extract_text_content(response: JsonMapping) -> str:
