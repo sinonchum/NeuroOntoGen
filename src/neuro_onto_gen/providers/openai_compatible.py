@@ -7,6 +7,7 @@ import os
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -31,10 +32,21 @@ class ProviderResponseError(RuntimeError):
         *,
         status_code: int | None = None,
         retryable: bool = False,
+        request_id: str | None = None,
+        retry_after_seconds: float | None = None,
     ) -> None:
+        diagnostics = []
+        if request_id:
+            diagnostics.append(f"request_id={request_id}")
+        if retry_after_seconds is not None:
+            diagnostics.append(f"retry_after={retry_after_seconds:g}s")
+        if diagnostics:
+            message = f"{message} ({', '.join(diagnostics)})"
         super().__init__(message)
         self.status_code = status_code
         self.retryable = retryable
+        self.request_id = request_id
+        self.retry_after_seconds = retry_after_seconds
 
 
 def _default_post_json(
@@ -55,10 +67,20 @@ def _default_post_json(
             raw = response.read().decode("utf-8")
     except HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
+        request_id = _extract_header_value(
+            exc.headers,
+            "x-request-id",
+            "request-id",
+            "x-correlation-id",
+            "cf-ray",
+        )
+        retry_after_seconds = _parse_retry_after(_extract_header_value(exc.headers, "retry-after"))
         raise ProviderResponseError(
             f"provider HTTP error {exc.code}: {_redact_response_body(body)}",
             status_code=exc.code,
             retryable=exc.code in RETRYABLE_HTTP_STATUS_CODES,
+            request_id=request_id,
+            retry_after_seconds=retry_after_seconds,
         ) from exc
     except URLError as exc:
         raise ProviderResponseError(f"provider network error: {exc.reason}", retryable=True) from exc
@@ -80,6 +102,34 @@ def _redact_response_body(body: str) -> str:
         if secret:
             redacted = redacted.replace(secret, "[REDACTED]")
     return redacted[:500]
+
+
+def _extract_header_value(headers: Any, *names: str) -> str | None:
+    """Return a response header value using case-insensitive matching."""
+    if not headers:
+        return None
+    lowered = {str(key).lower(): str(value) for key, value in headers.items()}
+    for name in names:
+        value = lowered.get(name.lower())
+        if value:
+            return value
+    return None
+
+
+def _parse_retry_after(value: str | None) -> float | None:
+    """Parse a Retry-After seconds or HTTP-date header into seconds."""
+    if not value:
+        return None
+    stripped = value.strip()
+    try:
+        seconds = float(stripped)
+    except ValueError:
+        try:
+            retry_at = parsedate_to_datetime(stripped)
+        except (TypeError, ValueError):
+            return None
+        seconds = retry_at.timestamp() - time.time()
+    return max(0.0, seconds)
 
 
 @dataclass(frozen=True)
@@ -172,8 +222,11 @@ class OpenAICompatibleProvider:
                 is_last_attempt = attempt_index >= attempts - 1
                 if is_last_attempt or not exc.retryable:
                     raise
-                if self.retry_delay > 0:
-                    self.sleep(self.retry_delay)
+                retry_delay = exc.retry_after_seconds
+                if retry_delay is None:
+                    retry_delay = self.retry_delay
+                if retry_delay > 0:
+                    self.sleep(retry_delay)
         raise RuntimeError("unreachable provider retry state")
 
     @staticmethod

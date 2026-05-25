@@ -61,7 +61,7 @@ The typed ABox payload currently covers the extraction MVP subset (`Employee`, `
 | Xiaomi MiMo provider integration | Parked | Adapter remains in the codebase, but default extraction/repair flows are now DeepSeek-first while Xiaomi credentials are unavailable. |
 | DeepSeek provider integration | Implemented | OpenAI-compatible `deepseek-v4-pro` adapter using `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, and `DEEPSEEK_MODEL`; default for extraction and usable by repair. |
 | Generic OpenAI-compatible relay integration | Implemented | `--provider openai-compatible` uses `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_TIMEOUT`, `OPENAI_MAX_RETRIES`, and `OPENAI_RETRY_DELAY` for OpenAI-style relay endpoints. |
-| Production LLM SDK integration | Partially implemented | OpenAI-compatible provider base supports DeepSeek, generic relay endpoints, retryable HTTP/network failures, plus parked Xiaomi MiMo; direct Anthropic SDK adapters remain planned. |
+| Production LLM SDK integration | Partially implemented | OpenAI-compatible provider base supports DeepSeek, generic relay endpoints, retryable HTTP/network failures, provider request IDs, `Retry-After` backoff hints, plus parked Xiaomi MiMo; direct Anthropic SDK adapters remain planned. |
 | Repair failure taxonomy | Implemented | Repair failures carry machine-readable reasons and error messages. |
 | OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing; `repair-owl` wraps OWL diagnostics, LLM repair, and bounded re-reasoning. |
 | Prompt stability evaluation | Implemented | Compares parseable Turtle outputs across prompt variants using canonical RDF triples, consensus graph coverage, and per-variant precision/recall/F1 diagnostics. |
@@ -448,7 +448,7 @@ Partially implemented:
 Next:
 
 - concrete direct OpenAI/Anthropic SDK integration if non-OpenAI-compatible features are needed;
-- provider retry/backoff semantics beyond the current OpenAI-compatible HTTP boundary.
+- provider-specific quota telemetry beyond standard request ID and `Retry-After` diagnostics.
 
 ### Phase 3: Validation and repair
 
@@ -509,7 +509,7 @@ Some of these documents are still design drafts and may describe planned feature
 ## Current limitations
 
 - Xiaomi MiMo is parked until valid credentials/endpoint access are available; DeepSeek is the default OpenAI-compatible provider for local smoke paths.
-- Provider retry/backoff is not implemented yet.
+- OpenAI-compatible retry/backoff covers retryable HTTP/network failures and honors provider `Retry-After`; richer provider-specific quota telemetry is still planned.
 - OWL reasoning requires optional `.[owl]` dependencies and a Java runtime; the base install only reports availability/unavailability and does not force Java into CI.
 - Remote graph support is read/query-only; SPARQL Update writes, authentication, pagination, retry/backoff, and vendor-specific GraphDB/Fuseki/Neptune behavior still need explicit safety policy and connector tests.
 - CLI coverage includes schema compilation, Turtle validation, provider-backed extraction, provider-backed Turtle repair, optional OWL availability/consistency checks, and OWL repair orchestration.
