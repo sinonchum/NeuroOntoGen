@@ -20,6 +20,7 @@ from neuro_onto_gen.core.validation import parse_shacl_violations, validate_abox
 from neuro_onto_gen.providers import (
     AnthropicProvider,
     DeepSeekProvider,
+    LocalModelProvider,
     OpenAICompatibleProvider,
     ProviderConfigurationError,
     ProviderResponseError,
@@ -41,6 +42,8 @@ def build_extraction_adapter(provider_name: str) -> ExtractorProtocol:
         return PromptedExtractionAdapter(provider=build_openai_compatible_provider())
     if normalized in {"anthropic", "claude"}:
         return PromptedExtractionAdapter(provider=AnthropicProvider.from_env())
+    if normalized in {"local", "local-model", "ollama", "vllm", "llama-cpp", "lmstudio"}:
+        return PromptedExtractionAdapter(provider=LocalModelProvider.from_env())
     raise ProviderConfigurationError(f"unsupported extraction provider: {provider_name}")
 
 
@@ -55,6 +58,8 @@ def build_completion_provider(provider_name: str):
         return build_openai_compatible_provider()
     if normalized in {"anthropic", "claude"}:
         return AnthropicProvider.from_env()
+    if normalized in {"local", "local-model", "ollama", "vllm", "llama-cpp", "lmstudio"}:
+        return LocalModelProvider.from_env()
     raise ProviderConfigurationError(f"unsupported completion provider: {provider_name}")
 
 
@@ -121,7 +126,7 @@ def repair_turtle_command(
     provider: str = typer.Option(
         "deepseek",
         "--provider",
-        help="Completion provider name. Supported: xiaomi-mimo, deepseek, openai-compatible, anthropic.",
+        help="Completion provider name. Supported: xiaomi-mimo, deepseek, openai-compatible, anthropic, local-model.",
     ),
     max_attempts: int = typer.Option(2, "--max-attempts", help="Maximum repair attempts."),
 ) -> None:
@@ -157,7 +162,7 @@ def repair_owl_command(
     provider: str = typer.Option(
         "deepseek",
         "--provider",
-        help="Completion provider name. Supported: xiaomi-mimo, deepseek, openai-compatible, anthropic.",
+        help="Completion provider name. Supported: xiaomi-mimo, deepseek, openai-compatible, anthropic, local-model.",
     ),
     max_attempts: int = typer.Option(2, "--max-attempts", help="Maximum OWL repair attempts."),
 ) -> None:
@@ -210,7 +215,7 @@ def extract_command(
     provider: str = typer.Option(
         "deepseek",
         "--provider",
-        help="Extraction provider name. Supported: deepseek, openai-compatible, anthropic. Xiaomi MiMo remains available only when explicitly requested.",
+        help="Extraction provider name. Supported: deepseek, openai-compatible, anthropic, local-model. Xiaomi MiMo remains available only when explicitly requested.",
     ),
 ) -> None:
     """Extract a validated CompanyAccess ABox payload from source text."""

@@ -4,7 +4,7 @@ NeuroOntoGen is an SDK-first research project for building ontology-generation p
 
 The project combines flexible extraction with symbolic validation. LLMs can propose ABox facts, but LinkML, Pydantic, RDF, and SHACL define the contract that decides whether those facts are usable.
 
-> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, OpenAI-compatible provider adapters, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded LLM-backed repair orchestration, optional OWL reasoner availability/consistency checks and repair, cross-prompt RDF graph stability evaluation, clustering-based schema discovery with optional LLM cluster naming, local in-memory graph repository smoke queries, read/query-only remote SPARQL endpoint adapters, and smoke-testable CLI commands. MCP adapters remain planned.
+> Current status: early MVP. The implemented core covers schema compilation, typed ABox models, raw JSON extraction normalization, schema-constrained prompt construction, hosted and local provider adapters, RDF/Turtle serialization, SHACL validation, structured SHACL violation parsing, bounded LLM-backed repair orchestration, optional OWL reasoner availability/consistency checks and repair, cross-prompt RDF graph stability evaluation, clustering-based schema discovery with optional LLM cluster naming, local in-memory graph repository smoke queries, read/query-only remote SPARQL endpoint adapters, and smoke-testable CLI commands. MCP adapters remain planned.
 
 ## Why this exists
 
@@ -62,7 +62,8 @@ The typed ABox payload currently covers the extraction MVP subset (`Employee`, `
 | DeepSeek provider integration | Implemented | OpenAI-compatible `deepseek-v4-pro` adapter using `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, and `DEEPSEEK_MODEL`; default for extraction and usable by repair. |
 | Generic OpenAI-compatible relay integration | Implemented | `--provider openai-compatible` uses `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_TIMEOUT`, `OPENAI_MAX_RETRIES`, and `OPENAI_RETRY_DELAY` for OpenAI-style relay endpoints. |
 | Anthropic provider integration | Implemented | `--provider anthropic` / `--provider claude` uses `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL`, `ANTHROPIC_TIMEOUT`, `ANTHROPIC_MAX_RETRIES`, and `ANTHROPIC_RETRY_DELAY` through the Messages API without adding a mandatory SDK dependency. |
-| Production LLM SDK integration | Partially implemented | OpenAI-compatible provider base supports DeepSeek, generic relay endpoints, retryable HTTP/network failures, provider request IDs, `Retry-After` backoff hints, plus parked Xiaomi MiMo; Anthropic Messages API is wired through the same provider-neutral boundary. |
+| Local model provider integration | Implemented | `--provider local-model` / `--provider ollama` targets local OpenAI-compatible `/v1/chat/completions` servers such as Ollama, vLLM, llama.cpp server, or LM Studio via `LOCAL_MODEL_*`; API key is optional. |
+| Production LLM SDK integration | Partially implemented | OpenAI-compatible provider base supports DeepSeek, generic relay endpoints, retryable HTTP/network failures, provider request IDs, `Retry-After` backoff hints, plus parked Xiaomi MiMo; Anthropic Messages API and local model servers are wired through the same provider-neutral boundary. |
 | Repair failure taxonomy | Implemented | Repair failures carry machine-readable reasons and error messages. |
 | OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing; `repair-owl` wraps OWL diagnostics, LLM repair, and bounded re-reasoning. |
 | Prompt stability evaluation | Implemented | Compares parseable Turtle outputs across prompt variants using canonical RDF triples, consensus graph coverage, and per-variant precision/recall/F1 diagnostics. |
@@ -223,6 +224,20 @@ export ANTHROPIC_API_KEY="..."
 export ANTHROPIC_MODEL="claude-3-5-haiku-latest"
 export ANTHROPIC_MAX_RETRIES="2"
 neuro-onto-gen extract "Employee E-001 has access level 3 and operates secure asset VPN requiring clearance 2." --provider anthropic
+```
+
+Or target a local/private OpenAI-compatible model server such as Ollama, vLLM, llama.cpp server, or LM Studio. Authentication is optional for this adapter:
+
+```bash
+export LOCAL_MODEL_BASE_URL="http://localhost:11434/v1"
+export LOCAL_MODEL_MODEL="llama3.1:8b"
+neuro-onto-gen extract "Employee E-001 has access level 3 and operates secure asset VPN requiring clearance 2." --provider local-model
+```
+
+If your local/private endpoint requires a bearer token, also set:
+
+```bash
+export LOCAL_MODEL_API_KEY="..."
 ```
 
 Xiaomi MiMo is temporarily parked because the available credential currently returns `401 invalid_key`; its adapter remains available for explicit experiments with a valid key via `--provider xiaomi-mimo`.
@@ -457,8 +472,8 @@ Partially implemented:
 
 Next:
 
-- concrete local-model adapter for offline/private deployments;
-- provider-specific quota telemetry beyond standard request ID and `Retry-After` diagnostics.
+- provider-specific quota telemetry beyond standard request ID and `Retry-After` diagnostics;
+- optional real-provider smoke recipes for local Ollama/vLLM and hosted endpoints without committing credentials.
 
 ### Phase 3: Validation and repair
 
