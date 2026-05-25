@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -12,6 +13,9 @@ from urllib.request import Request, urlopen
 
 JsonMapping = Mapping[str, Any]
 PostJson = Callable[[str, Mapping[str, str], Mapping[str, Any], float], JsonMapping]
+Sleep = Callable[[float], None]
+
+RETRYABLE_HTTP_STATUS_CODES = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
 
 
 class ProviderConfigurationError(RuntimeError):
@@ -20,6 +24,17 @@ class ProviderConfigurationError(RuntimeError):
 
 class ProviderResponseError(RuntimeError):
     """Raised when a provider response is missing the expected structured content."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        retryable: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.retryable = retryable
 
 
 def _default_post_json(
@@ -41,10 +56,12 @@ def _default_post_json(
     except HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
         raise ProviderResponseError(
-            f"provider HTTP error {exc.code}: {_redact_response_body(body)}"
+            f"provider HTTP error {exc.code}: {_redact_response_body(body)}",
+            status_code=exc.code,
+            retryable=exc.code in RETRYABLE_HTTP_STATUS_CODES,
         ) from exc
     except URLError as exc:
-        raise ProviderResponseError(f"provider network error: {exc.reason}") from exc
+        raise ProviderResponseError(f"provider network error: {exc.reason}", retryable=True) from exc
 
     try:
         parsed = json.loads(raw)
@@ -75,11 +92,14 @@ class OpenAICompatibleProvider:
     provider_name: str
     timeout: float = 60.0
     temperature: float = 0
+    max_retries: int = 0
+    retry_delay: float = 0.0
     system_prompt: str = (
         "You are NeuroOntoGen's ontology extraction provider. "
         "Return only JSON matching the requested schema."
     )
     post_json: PostJson = field(default=_default_post_json, repr=False, compare=False)
+    sleep: Sleep = field(default=time.sleep, repr=False, compare=False)
 
     @classmethod
     def from_env_vars(
@@ -92,6 +112,8 @@ class OpenAICompatibleProvider:
         base_url_env: str | None = None,
         model_env: str | None = None,
         timeout_env: str | None = None,
+        max_retries_env: str | None = None,
+        retry_delay_env: str | None = None,
         system_prompt: str | None = None,
     ) -> "OpenAICompatibleProvider":
         """Build a provider from a conventional set of environment variables."""
@@ -103,12 +125,16 @@ class OpenAICompatibleProvider:
         base_url = os.getenv(base_url_env or "", default_base_url).strip().rstrip("/")
         model = os.getenv(model_env or "", default_model).strip() or default_model
         timeout = float(os.getenv(timeout_env or "", str(cls.timeout)))
+        max_retries = int(os.getenv(max_retries_env or "", str(cls.max_retries)))
+        retry_delay = float(os.getenv(retry_delay_env or "", str(cls.retry_delay)))
         kwargs: dict[str, Any] = {
             "api_key": api_key,
             "base_url": base_url,
             "model": model,
             "provider_name": provider_name,
             "timeout": timeout,
+            "max_retries": max_retries,
+            "retry_delay": retry_delay,
         }
         if system_prompt is not None:
             kwargs["system_prompt"] = system_prompt
@@ -129,8 +155,26 @@ class OpenAICompatibleProvider:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-        response = self.post_json(endpoint, headers, payload, self.timeout)
+        response = self._post_json_with_retries(endpoint, headers, payload)
         return self._extract_message_content(response)
+
+    def _post_json_with_retries(
+        self,
+        endpoint: str,
+        headers: Mapping[str, str],
+        payload: Mapping[str, Any],
+    ) -> JsonMapping:
+        attempts = max(0, self.max_retries) + 1
+        for attempt_index in range(attempts):
+            try:
+                return self.post_json(endpoint, headers, payload, self.timeout)
+            except ProviderResponseError as exc:
+                is_last_attempt = attempt_index >= attempts - 1
+                if is_last_attempt or not exc.retryable:
+                    raise
+                if self.retry_delay > 0:
+                    self.sleep(self.retry_delay)
+        raise RuntimeError("unreachable provider retry state")
 
     @staticmethod
     def _extract_message_content(response: JsonMapping) -> str:

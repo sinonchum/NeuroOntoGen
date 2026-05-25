@@ -60,7 +60,8 @@ The typed ABox payload currently covers the extraction MVP subset (`Employee`, `
 | Provider-backed extraction boundary | Implemented | A protocol-based adapter builds prompts, calls a provider client, and validates provider output. |
 | Xiaomi MiMo provider integration | Parked | Adapter remains in the codebase, but default extraction/repair flows are now DeepSeek-first while Xiaomi credentials are unavailable. |
 | DeepSeek provider integration | Implemented | OpenAI-compatible `deepseek-v4-pro` adapter using `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, and `DEEPSEEK_MODEL`; default for extraction and usable by repair. |
-| Production LLM SDK integration | Partially implemented | OpenAI-compatible provider base supports DeepSeek plus parked Xiaomi MiMo; direct OpenAI/Anthropic SDK adapters remain planned. |
+| Generic OpenAI-compatible relay integration | Implemented | `--provider openai-compatible` uses `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_TIMEOUT`, `OPENAI_MAX_RETRIES`, and `OPENAI_RETRY_DELAY` for OpenAI-style relay endpoints. |
+| Production LLM SDK integration | Partially implemented | OpenAI-compatible provider base supports DeepSeek, generic relay endpoints, retryable HTTP/network failures, plus parked Xiaomi MiMo; direct Anthropic SDK adapters remain planned. |
 | Repair failure taxonomy | Implemented | Repair failures carry machine-readable reasons and error messages. |
 | OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing; `repair-owl` wraps OWL diagnostics, LLM repair, and bounded re-reasoning. |
 | Prompt stability evaluation | Implemented | Compares parseable Turtle outputs across prompt variants using canonical RDF triples, consensus graph coverage, and per-variant precision/recall/F1 diagnostics. |
@@ -204,6 +205,16 @@ export DEEPSEEK_MODEL="deepseek-v4-pro"
 neuro-onto-gen extract "Employee E-001 has access level 3 and operates secure asset VPN requiring clearance 2."
 ```
 
+Or use a generic OpenAI-compatible relay endpoint:
+
+```bash
+export OPENAI_API_KEY="..."
+export OPENAI_BASE_URL="https://api.shqbb.com/v1"
+export OPENAI_MODEL="gpt-4o-mini"
+export OPENAI_MAX_RETRIES="2"
+neuro-onto-gen extract "Employee E-001 has access level 3 and operates secure asset VPN requiring clearance 2." --provider openai-compatible
+```
+
 Xiaomi MiMo is temporarily parked because the available credential currently returns `401 invalid_key`; its adapter remains available for explicit experiments with a valid key via `--provider xiaomi-mimo`.
 
 The `extract` command renders the schema-constrained CompanyAccess prompt, calls the selected OpenAI-compatible chat-completions endpoint, and prints only Pydantic-validated ABox JSON. Missing provider configuration exits `2`; provider HTTP/shape errors exit `3`; schema validation failures exit `4`.
@@ -211,7 +222,7 @@ The `extract` command renders the schema-constrained CompanyAccess prompt, calls
 Repair a non-conforming Turtle graph with the same provider boundary:
 
 ```bash
-neuro-onto-gen repair-turtle examples/company/invalid_abox.ttl build/schema/company_schema.shacl.ttl --provider deepseek --max-attempts 2
+neuro-onto-gen repair-turtle examples/company/invalid_abox.ttl build/schema/company_schema.shacl.ttl --provider openai-compatible --max-attempts 2
 ```
 
 The repair command parses real SHACL violations, builds a repair prompt, calls the provider, strips accidental Turtle fences, revalidates each candidate, prints only the final conforming Turtle, and exits `5` if the bounded repair loop cannot converge.

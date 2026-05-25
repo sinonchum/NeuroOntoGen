@@ -37,7 +37,7 @@
 
 | Priority | Item | Current status after latest slice |
 |---|---|---|
-| P0 | 生产级 extraction provider + repair loop | Xiaomi MiMo + DeepSeek OpenAI-compatible providers are wired. `repair-turtle` now builds prompts from real SHACL violations, calls a provider, and revalidates bounded candidates. Xiaomi real smoke still needs a valid key because the local key returned `401 invalid_key`. |
+| P0 | 生产级 extraction provider + repair loop | Xiaomi MiMo + DeepSeek + generic OpenAI-compatible relay providers are wired. `repair-turtle` now builds prompts from real SHACL violations, calls a provider, and revalidates bounded candidates. OpenAI-compatible HTTP/network retries are available via provider env vars; Xiaomi real smoke still needs a valid key because the local key returned `401 invalid_key`. |
 | P0 | 扩展本体规模和复杂度 | `schemas/company_schema.yaml` now has 9 classes with inheritance, domain/range slots, and required/cardinality constraints. Minimal test fixture remains separate. |
 | P1 | clustering 生产路径 | Still pending: SpaCy + sentence-transformers + scikit-learn AP path beyond deterministic fallback. |
 | P1 | OWL 推理到修复闭环 | Still pending: map real OWL inconsistency diagnostics into repair prompts. |
@@ -886,11 +886,10 @@ MVP 只有在以下条件全部满足时才算完成：
 
 推荐立即执行顺序：
 
-1. 把 Xiaomi MiMo provider-backed extraction 扩展为完整 smoke path：确认可用 API key 后运行真实 `extract` 示例，并记录模型/endpoint/失败诊断但不提交密钥；
-2. 增加 provider retry/backoff、HTTP status taxonomy、credential/config diagnostics；
-3. 实现 OpenAI / Anthropic / local-model adapter，保持核心 SDK provider-neutral；
-4. 新增 CLI `repair-turtle` 或 SDK-level provider repairer：把 SHACL violations 转成 repair prompt，返回重新验证后的 Turtle；
-5. 更新 notebook/benchmark：保留 deterministic path，同时可选展示真实 provider path；
-6. 补 Academic Baseline 的 Exact Match / Fuzzy Match F1。
+1. 把通用 OpenAI-compatible relay provider 扩展为真实 smoke path：确认可用 API key 后运行 `--provider openai-compatible` 示例，并记录模型/endpoint/失败诊断但不提交密钥；
+2. 继续完善 provider diagnostics：当前已覆盖 retryable HTTP/network retry、status code taxonomy 和 credential/config errors，下一步可补 provider-specific rate-limit headers / request IDs；
+3. 实现 Anthropic / local-model adapter，保持核心 SDK provider-neutral；
+4. 更新 notebook/benchmark：保留 deterministic path，同时可选展示真实 provider path；
+5. 扩展真实数据集评估：FewRel/WebNLG/custom enterprise security benchmark cases。
 
 完成这些后，NeuroOntoGen 才会从“可复现语义验证核心”升级为“可用的 LLM-backed ontology extraction MVP”。
