@@ -859,7 +859,7 @@ MVP 只有在以下条件全部满足时才算完成：
 学术基线只有在以下条件满足时才算完成：
 
 - [x] 有至少一个公开或可发布示例数据集；
-- [ ] 有 Exact Match / Fuzzy Match F1；
+- [x] 有 Exact Match / Fuzzy Match F1；
 - [x] 有 SHACL conformance rate；
 - [x] 有 repair success rate；
 - [x] 有 prompt stability metric；

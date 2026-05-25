@@ -478,7 +478,7 @@ Partially implemented:
 - CLI smoke commands for schema compilation and Turtle validation;
 - runnable company example fixtures for conforming and non-conforming Turtle graphs;
 - GitHub Actions CI for install, lint, tests, and CLI smoke checks;
-- benchmark skeleton with quick JSON and Markdown summaries;
+- benchmark skeleton with quick JSON and Markdown summaries, including Exact Match and Fuzzy Token F1 against the valid example reference;
 - reproducible end-to-end notebook with deterministic mock repair;
 
 Planned:

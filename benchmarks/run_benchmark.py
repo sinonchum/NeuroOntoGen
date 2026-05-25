@@ -11,7 +11,7 @@ from typing import Any
 
 from neuro_onto_gen.clustering.discovery import discover_schema_from_terms
 from neuro_onto_gen.core.validation import validate_abox_turtle
-from neuro_onto_gen.evaluation.metrics import shacl_conformance_rate
+from neuro_onto_gen.evaluation.metrics import exact_match, fuzzy_token_f1, shacl_conformance_rate
 from neuro_onto_gen.evaluation.prompt_stability import PromptVariantOutput, evaluate_prompt_stability
 from neuro_onto_gen.schema.compiler import compile_schema
 
@@ -30,15 +30,23 @@ def run_quick_benchmark(dataset: Path) -> dict[str, Any]:
 
         cases: dict[str, dict[str, Any]] = {}
         conformance_results: list[bool] = []
+        reference_turtle = (dataset / "valid_abox.ttl").read_text(encoding="utf-8")
+        exact_match_results: list[float] = []
+        fuzzy_token_f1_results: list[float] = []
         for case_file in CASE_FILES:
             turtle_path = dataset / case_file
+            turtle_text = turtle_path.read_text(encoding="utf-8")
             report = validate_abox_turtle(
-                turtle=turtle_path.read_text(encoding="utf-8"),
+                turtle=turtle_text,
                 shacl_path=artifacts["shacl"],
             )
             conformance_results.append(report.conforms)
+            exact_match_results.append(exact_match(turtle_text, reference_turtle))
+            fuzzy_token_f1_results.append(fuzzy_token_f1(turtle_text, reference_turtle))
             cases[case_file] = {
                 "conforms": report.conforms,
+                "exact_match_to_reference": exact_match_results[-1],
+                "fuzzy_token_f1_to_reference": fuzzy_token_f1_results[-1],
                 "report_text": report.report_text,
             }
 
@@ -71,6 +79,8 @@ def run_quick_benchmark(dataset: Path) -> dict[str, Any]:
         "mode": "quick",
         "cases_total": len(cases),
         "shacl_conformance_rate": shacl_conformance_rate(conformance_results),
+        "exact_match_score": _mean(exact_match_results),
+        "fuzzy_token_f1": _mean(fuzzy_token_f1_results),
         "repair_success_rate": 0.0,
         "prompt_stability_score": prompt_stability.exact_graph_stability,
         "prompt_stability": prompt_stability.to_json_dict(),
@@ -82,6 +92,10 @@ def run_quick_benchmark(dataset: Path) -> dict[str, Any]:
     }
 
 
+def _mean(values: list[float]) -> float:
+    return sum(values) / len(values) if values else 0.0
+
+
 def render_markdown_summary(summary: dict[str, Any]) -> str:
     """Render a compact Markdown benchmark summary."""
     lines = [
@@ -91,6 +105,8 @@ def render_markdown_summary(summary: dict[str, Any]) -> str:
         f"Mode: {summary['mode']}",
         f"Cases total: {summary['cases_total']}",
         f"SHACL conformance rate: {summary['shacl_conformance_rate']}",
+        f"Exact match score: {summary['exact_match_score']}",
+        f"Fuzzy token F1: {summary['fuzzy_token_f1']}",
         f"Repair success rate: {summary['repair_success_rate']}",
         f"Prompt stability score: {summary['prompt_stability_score']}",
         f"Prompt variants: {summary['prompt_stability']['variant_count']}",
