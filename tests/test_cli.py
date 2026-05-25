@@ -92,6 +92,62 @@ def test_validate_turtle_command_exits_zero_for_conforming_graph(tmp_path: Path)
     assert "conforms: true" in result.output.lower()
 
 
+def test_validate_turtle_command_can_store_conforming_graph_in_local_repository(tmp_path: Path) -> None:
+    schema_dir = tmp_path / "schema"
+    compile_result = runner.invoke(
+        app,
+        ["compile-schema", "tests/fixtures/company_schema.yaml", str(schema_dir)],
+    )
+    assert compile_result.exit_code == 0, compile_result.output
+    data_path = tmp_path / "valid.ttl"
+    data_path.write_text(VALID_TURTLE, encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "validate-turtle",
+            str(data_path),
+            str(schema_dir / "company_schema.shacl.ttl"),
+            "--store",
+            "--graph-name",
+            "company-smoke",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "conforms: true" in result.output.lower()
+    assert "store_backend: rdflib-in-memory" in result.output
+    assert "store_connection: local-in-memory" in result.output
+    assert "store_networked: false" in result.output
+    assert "store_graph_name: company-smoke" in result.output
+    assert "store_triple_count:" in result.output
+
+
+def test_validate_turtle_command_does_not_store_nonconforming_graph(tmp_path: Path) -> None:
+    schema_dir = tmp_path / "schema"
+    compile_result = runner.invoke(
+        app,
+        ["compile-schema", "tests/fixtures/company_schema.yaml", str(schema_dir)],
+    )
+    assert compile_result.exit_code == 0, compile_result.output
+    data_path = tmp_path / "invalid.ttl"
+    data_path.write_text(INVALID_TURTLE, encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "validate-turtle",
+            str(data_path),
+            str(schema_dir / "company_schema.shacl.ttl"),
+            "--store",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "conforms: false" in result.output.lower()
+    assert "store_backend" not in result.output
+
+
 def test_validate_turtle_command_exits_nonzero_and_prints_violations(
     tmp_path: Path,
 ) -> None:

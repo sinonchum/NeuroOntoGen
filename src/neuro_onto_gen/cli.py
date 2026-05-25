@@ -17,6 +17,7 @@ from neuro_onto_gen.core.repair import (
     RepairFailure,
 )
 from neuro_onto_gen.core.validation import parse_shacl_violations, validate_abox_turtle
+from neuro_onto_gen.graph import InMemoryGraphRepository
 from neuro_onto_gen.providers import (
     AnthropicProvider,
     DeepSeekProvider,
@@ -98,6 +99,12 @@ def compile_schema_command(
 def validate_turtle_command(
     turtle_path: Path = typer.Argument(..., help="Path to the RDF/Turtle data graph."),
     shacl_path: Path = typer.Argument(..., help="Path to the SHACL shapes graph."),
+    store: bool = typer.Option(
+        False,
+        "--store",
+        help="After successful validation, load the graph into the local in-memory repository and print a store summary.",
+    ),
+    graph_name: str = typer.Option("default", "--graph-name", help="Graph name label for --store summaries."),
 ) -> None:
     """Validate a Turtle data graph against a SHACL shapes graph."""
     turtle = turtle_path.read_text(encoding="utf-8")
@@ -105,6 +112,13 @@ def validate_turtle_command(
 
     typer.echo(f"conforms: {str(report.conforms).lower()}")
     if report.conforms:
+        if store:
+            repository = InMemoryGraphRepository().load_turtle(turtle, graph_name=graph_name)
+            typer.echo(f"store_backend: {repository.backend_name}")
+            typer.echo(f"store_connection: {repository.connection_label}")
+            typer.echo(f"store_networked: {str(repository.is_networked).lower()}")
+            typer.echo(f"store_graph_name: {repository.graph_name}")
+            typer.echo(f"store_triple_count: {repository.triple_count}")
         return
 
     violations = parse_shacl_violations(report)

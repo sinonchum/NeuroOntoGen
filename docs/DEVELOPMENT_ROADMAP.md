@@ -39,6 +39,7 @@
 |---|---|---|
 | P0 | 生产级 extraction provider + repair loop | Xiaomi MiMo + DeepSeek + generic OpenAI-compatible relay + Anthropic Messages API + local OpenAI-compatible model providers are wired. `repair-turtle` now builds prompts from real SHACL violations, calls a provider, and revalidates bounded candidates. OpenAI-compatible HTTP/network retries are available via provider env vars; diagnostics preserve provider request IDs and honor `Retry-After` backoff hints; OpenAI-compatible and Anthropic providers share the same retry helper. Xiaomi real smoke still needs a valid key because the local key returned `401 invalid_key`. |
 | P0 | 扩展本体规模和复杂度 | `schemas/company_schema.yaml` now has 9 classes with inheritance, domain/range slots, and required/cardinality constraints. ABox Pydantic models, prompt schema, relation endpoint validation, and Turtle serialization now cover Person, Employee, Contractor, Department, AccessPolicy, SecureAsset, DigitalAsset, PhysicalAsset, plus memberOf/manages/operates/assignedPolicy/managedBy/ownerDepartment. Minimal test fixture remains separate. |
+| P1 | Graph repository CLI smoke path | `validate-turtle --store --graph-name ...` now loads only SHACL-conforming graphs into the safe local RDFLib in-memory repository, prints backend/network/triple-count metadata, and avoids remote writes. Remote SPARQL remains read/query-only until an explicit update safety policy exists. |
 | P1 | clustering 生产路径 | Still pending: SpaCy + sentence-transformers + scikit-learn AP path beyond deterministic fallback. |
 | P1 | OWL 推理到修复闭环 | Still pending: map real OWL inconsistency diagnostics into repair prompts. |
 | P2 | 真实数据集评估 | Still pending: FewRel/WebNLG/custom enterprise security benchmark cases. |
@@ -797,7 +798,7 @@ docs/MCP_USAGE.md
 ### 企业集成方向
 
 - Neo4j connector；
-- GraphDB / RDF store connector；
+- GraphDB / RDF store connector（local RDFLib smoke path and read/query-only SPARQL endpoint adapter exist; remote SPARQL Update writes still require explicit safety policy）；
 - audit log；
 - human review artifact；
 - private deployment profile。

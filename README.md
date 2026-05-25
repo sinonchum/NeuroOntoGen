@@ -68,7 +68,7 @@ The typed ABox payload covers the extraction MVP subset and the current producti
 | OWL reasoning | Optional adapter implemented | Lazy owlready2/Pellet/HermiT boundary with clear unavailable status when Java or optional deps are missing; `repair-owl` wraps OWL diagnostics, LLM repair, and bounded re-reasoning. |
 | Prompt stability evaluation | Implemented | Compares parseable Turtle outputs across prompt variants using canonical RDF triples, consensus graph coverage, and per-variant precision/recall/F1 diagnostics. |
 | Clustering discovery | Implemented | Deterministic fallback plus optional SpaCy noun-chunk extraction, sentence-transformer embeddings, scikit-learn AffinityPropagation clustering, optional LLM-based cluster naming, human-review flags, and LinkML draft generation. |
-| Graph repository connector | Implemented | Local RDFLib in-memory repository loads Turtle, runs SELECT/CONSTRUCT/ASK SPARQL, exports Turtle, and opens no network connection by default; `SPARQLEndpointRepository` adds read/query-only remote endpoint support through an injectable HTTP seam. |
+| Graph repository connector | Implemented | Local RDFLib in-memory repository loads Turtle, runs SELECT/CONSTRUCT/ASK SPARQL, exports Turtle, and opens no network connection by default; `validate-turtle --store` can load conforming graphs into the local smoke repository and print backend/triple-count metadata; `SPARQLEndpointRepository` adds read/query-only remote endpoint support through an injectable HTTP seam. |
 
 ## Architecture
 
@@ -196,7 +196,13 @@ Validate a Turtle data graph against generated SHACL shapes:
 neuro-onto-gen validate-turtle examples/company/valid_abox.ttl build/schema/company_schema.shacl.ttl
 ```
 
-The validation command prints `conforms: true` and exits `0` for conforming graphs. For non-conforming graphs, such as `examples/company/invalid_abox.ttl`, it prints structured violation details and exits `1`.
+The validation command prints `conforms: true` and exits `0` for conforming graphs. Add `--store` to load a conforming graph into the safe local in-memory repository and print a store summary:
+
+```bash
+neuro-onto-gen validate-turtle examples/company/valid_abox.ttl build/schema/company_schema.shacl.ttl --store --graph-name company-smoke
+```
+
+`--store` does not open a network connection; it reports `store_backend: rdflib-in-memory`, `store_networked: false`, the graph name, and the local triple count. For non-conforming graphs, such as `examples/company/invalid_abox.ttl`, validation prints structured violation details, exits `1`, and does not store the graph.
 
 Extract source text with the default DeepSeek OpenAI-compatible provider:
 
@@ -330,7 +336,7 @@ SELECT ?employee ?asset WHERE {
 print(result.rows)
 ```
 
-`InMemoryGraphRepository` is intended for deterministic smoke tests, local demos, and future connector-contract tests before remote GraphDB/Fuseki/Neptune/SPARQL-endpoint adapters are added.
+`InMemoryGraphRepository` is intended for deterministic smoke tests, local demos, and future connector-contract tests before remote GraphDB/Fuseki/Neptune/SPARQL-endpoint adapters are added. The same local adapter is exposed through `neuro-onto-gen validate-turtle --store` for a CLI smoke path from SHACL conformance into graph loading.
 
 For read/query-only remote endpoints, use the SPARQL adapter. Construction is side-effect free; network I/O happens only when `query()` is called, and tests can inject a fake HTTP client:
 
